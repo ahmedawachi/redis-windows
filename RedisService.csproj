@@ -29,6 +29,11 @@
 		<None Remove="tests/**" />
 		<EmbeddedResource Remove="tests/**" />
 		<Compile Remove="publish/**;ci/**;patches/**;conf/**;scripts/**" />
+		<!-- The website and repo docs live next to the project; the Worker SDK would otherwise publish their
+		     .json files (benchmark data) alongside RedisService.exe and into every release package. -->
+		<Compile Remove="site/**;docs/**" />
+		<Content Remove="site/**;docs/**;ci/**;scripts/**;patches/**;conf/**;.github/**" />
+		<None Remove="site/**;docs/**" />
 	</ItemGroup>
 
 	<ItemGroup>
