@@ -326,6 +326,9 @@ try {
     # ------------------------------------------------------------------ hang -> health probe restart
     Write-Step 'DEBUG SLEEP 90 -> health probe restarts redis-server'
     $redisPid = Get-RedisPid
+    # Until the wrapper has seen this process answer PING, a hang counts against --start-timeout (120 s), not the
+    # health probe.
+    Wait-Until { @(Get-Events $svc 1001 | Where-Object { (Get-EventText $_) -match "\(PID $redisPid\) is ready" }).Count -ge 1 } 30 "the wrapper declared redis-server $redisPid ready (event 1001)"
     $hangAt = Get-Date
     $sleeper = Start-Sleeper 90
     Wait-Until { $n = Get-RedisPid; ($n -ne 0) -and ($n -ne $redisPid) -and (Test-Pong) } 88 'redis-server replaced before the 90 s sleep ended'

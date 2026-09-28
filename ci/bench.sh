@@ -156,7 +156,7 @@ row() { echo "$LABEL,$REP,$1,$2,$3,$4" >>"$OUT_CSV"; }
 start_server() {
     local i
     for _ in 1 2 3 4 5; do
-        PORT=$(( ( (RANDOM << 15) | RANDOM ) % 40000 + 20000 ))
+        PORT=$(( ( (RANDOM << 15) | RANDOM ) % 29000 + 20000 ))  # below the dynamic range
         port_open "$PORT" && continue
         "$SERVER" --port "$PORT" --bind 127.0.0.1 --daemonize no --save "" --appendonly no \
             --dir "$(native "$WORK/data")" --logfile "$(native "$WORK/redis.log")" \

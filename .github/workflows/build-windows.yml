@@ -167,7 +167,7 @@ jobs:
           if ($version -notmatch ('v=' + [regex]::Escape($env:REDIS_VERSION) + ' ')) {
             throw "Version check failed. Expected v=$env:REDIS_VERSION, got: $version"
           }
-          $port = Get-Random -Minimum 20000 -Maximum 60000
+          $port = Get-Random -Minimum 20000 -Maximum 49000  # below the dynamic range and its excluded ports
           $data = New-Item -ItemType Directory -Path (Join-Path $env:RUNNER_TEMP "native-$port")
           $dir = $data.FullName -replace '\\', '/'
           $cli = Join-Path $pkg 'redis-cli.exe'

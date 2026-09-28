@@ -120,10 +120,12 @@ expect_eq() { # <what> <expected> <actual>
 # 0 if something accepts TCP connections on 127.0.0.1:$1.
 port_open() { (exec 3<>"/dev/tcp/127.0.0.1/$1") 2>/dev/null; }
 
+# Ports stay below 49152: Windows reserves excluded ranges inside its dynamic range, where bind() fails
+# with "Permission denied" although nothing listens.
 pick_port() {
     local p i
     for i in 1 2 3 4 5 6 7 8 9 10; do
-        p=$(( ( (RANDOM << 15) | RANDOM ) % 40000 + 20000 ))
+        p=$(( ( (RANDOM << 15) | RANDOM ) % 29000 + 20000 ))
         if ! port_open "$p"; then echo "$p"; return 0; fi
     done
     return 1
@@ -147,8 +149,8 @@ start_server() {
             if ! kill -0 "$SERVER_PID" 2>/dev/null; then
                 wait "$SERVER_PID" 2>/dev/null || true
                 SERVER_PID=""
-                if grep -q "Address already in use" "$WORK/redis.log" 2>/dev/null; then
-                    log "port $PORT was taken meanwhile, retrying"
+                if grep -Eq "listening socket 127\.0\.0\.1:$PORT: bind: (Address already in use|Permission denied)" "$WORK/redis.log" 2>/dev/null; then
+                    log "port $PORT could not be bound, retrying"
                     continue 2
                 fi
                 cat "$WORK/stdout.log" >&2 || true

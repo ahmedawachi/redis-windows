@@ -106,7 +106,7 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           $pkg = Join-Path $PWD "dist\$env:DIST_NAME"
-          $port = Get-Random -Minimum 20000 -Maximum 60000
+          $port = Get-Random -Minimum 20000 -Maximum 49000  # below the dynamic range and its excluded ports
           $dir = New-Item -ItemType Directory -Path (Join-Path $env:RUNNER_TEMP "direct-$port")
           $conf = Join-Path $dir.FullName 'probe.conf'
           "port $port`nbind 127.0.0.1`nsave `"`"`ndir `"$($dir.FullName -replace '\\','/')`"`nmaxmemory-policy allkeys-lru`n" | Set-Content -Encoding ascii $conf
