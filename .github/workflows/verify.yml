@@ -167,12 +167,12 @@ jobs:
       dlfcn_compat: ${{ matrix.variant == 'baseline' }}
       smoke_fork_features: ${{ matrix.variant == 'fork' && 'series' || 'no' }}
       with_service: ${{ matrix.variant == 'fork' }}
-      run_runtest: ${{ github.event_name != 'workflow_dispatch' || inputs.run_runtest }}
+      run_runtest: ${{ github.event_name != 'workflow_dispatch' || inputs.run_runtest == true || inputs.run_runtest == 'true' }}
       runtest_required: ${{ matrix.variant == 'fork' }}
 
   bench:
     needs: [prepare, build]
-    if: github.event_name != 'workflow_dispatch' || inputs.run_bench
+    if: github.event_name != 'workflow_dispatch' || inputs.run_bench == true || inputs.run_bench == 'true'
     runs-on: windows-latest
     timeout-minutes: 60
     strategy:

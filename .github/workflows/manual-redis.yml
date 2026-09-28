@@ -38,10 +38,12 @@ permissions:
 jobs:
   build-redis:
     uses: ./.github/workflows/build-redis.yml
+    # A run started through the REST API delivers every input as a string ("1", "true"), which the
+    # reusable workflow's number/boolean inputs reject. These forms accept the string and the typed value.
     with:
       redis_version: ${{ inputs.redis_version }}
-      fork_revision: ${{ inputs.fork_revision }}
+      fork_revision: ${{ fromJSON(format('{0}', inputs.fork_revision)) }}
       optimization: ${{ inputs.optimization }}
-      build_tls: ${{ inputs.build_tls }}
-      make_latest: ${{ inputs.make_latest }}
-      prerelease: ${{ inputs.prerelease }}
+      build_tls: ${{ inputs.build_tls == true || inputs.build_tls == 'true' }}
+      make_latest: ${{ inputs.make_latest == true || inputs.make_latest == 'true' }}
+      prerelease: ${{ inputs.prerelease == true || inputs.prerelease == 'true' }}
