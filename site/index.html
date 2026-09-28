@@ -57,10 +57,11 @@
           <li>-O2 build</li><li>soft OOM</li><li>self-healing service</li><li>real memory metrics</li>
         </ul>
         <div class="cta-row">
-          <a class="btn btn-primary" href="https://github.com/ahmedawachi/redis-windows/releases"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>Download</a>
-          <a class="btn btn-ghost" href="setup.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2M10 2h4"/></svg>60-second setup</a>
+          <a class="btn btn-primary" href="#quickstart"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2M10 2h4"/></svg>60-second setup</a>
+          <a class="btn btn-ghost" href="https://github.com/ahmedawachi/redis-windows/releases"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>Download</a>
           <a class="btn btn-ghost" href="benchmarks.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Benchmarks</a>
         </div>
+        <p class="cta-note">One download and a double-click. No installer, no .NET install, no admin rights to try it.</p>
       </div>
       <div class="tiles" aria-hidden="true">
         <i class="tile on pulse"></i><i class="tile on"></i><i class="tile on"></i><i class="tile"></i><i class="tile"></i><i class="tile on pulse"></i><i class="tile"></i>
@@ -76,6 +77,36 @@
       <div class="hero-stats-meta" id="hero-stats-meta"></div>
     </div>
     <div style="height:104px" aria-hidden="true"></div>
+  </section>
+
+  <section class="section wrap" id="quickstart" aria-labelledby="qs-title">
+    <div class="section-head">
+      <span class="kicker">60-second setup</span>
+      <h2 id="qs-title">Redis on Windows in three steps</h2>
+      <p>One download, one double-click. Redis runs on <code>127.0.0.1:6379</code>, reachable only from this machine until you choose otherwise.</p>
+    </div>
+    <ol class="grid-3 qs-steps">
+      <li class="card why">
+        <span class="num" aria-hidden="true">1</span>
+        <h3>Download</h3>
+        <p>The <code class="brk">…-Windows-x64-msys2-with-Service.zip</code> from <a href="https://github.com/ahmedawachi/redis-windows/releases">Releases</a>.</p>
+      </li>
+      <li class="card why">
+        <span class="num" aria-hidden="true">2</span>
+        <h3>Unblock and unzip</h3>
+        <p>Right-click the zip → <strong>Properties</strong> → tick <strong>Unblock</strong> → <strong>OK</strong>, then extract it anywhere.</p>
+      </li>
+      <li class="card why">
+        <span class="num" aria-hidden="true">3</span>
+        <h3>Double-click <code>RedisService.exe</code></h3>
+        <p>Redis starts in a window that shows where your data is saved. Open <code>redis-cli.exe</code>, type <code>PING</code>, get <code>PONG</code>.</p>
+      </li>
+    </ol>
+    <div class="cta-row qs-cta">
+      <a class="btn btn-primary" href="setup.html#try">Full setup guide</a>
+      <a class="btn btn-quiet" href="setup.html#service">Run it as a service</a>
+      <a class="btn btn-quiet" href="docs.html?doc=admin">Production server? Admin guide</a>
+    </div>
   </section>
 
   <section class="section wrap" aria-labelledby="why-title">
