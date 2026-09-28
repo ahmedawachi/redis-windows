@@ -47,6 +47,7 @@ $portVirtual = $port + 7
 $portTls = $port + 11
 $portBin = $port + 13
 $work = Join-Path ([System.IO.Path]::GetTempPath()) "redis-wrapper-it-$suffix"
+$vaData = Join-Path $env:ProgramData "Redis CI $suffix\data dir"
 $cli = Join-Path $PackageDir 'redis-cli.exe'
 $exe = Join-Path $PackageDir 'RedisService.exe'
 $isMsys2 = Test-Path -LiteralPath (Join-Path $PackageDir 'msys-2.0.dll')
@@ -428,7 +429,6 @@ try {
     $vaRoot = Join-Path $env:ProgramFiles "Redis CI $suffix"
     $cleanupDirs.Add($vaRoot)
     Copy-Item -Recurse -LiteralPath $PackageDir -Destination $vaRoot
-    $vaData = Join-Path $env:ProgramData "Redis CI $suffix\data dir"
     $cleanupDirs.Add((Split-Path -Parent $vaData))
     $vaConf = Write-TestConfig $vaData $portVirtual
     & (Join-Path $vaRoot 'RedisService.exe') install --service-name $svcVirtual -c $vaConf --virtual-account --start-mode auto
@@ -575,7 +575,7 @@ catch {
             Write-Host ("[{0:HH:mm:ss}] {1} {2}: {3}" -f $_.TimeCreated, $_.Id, $_.LevelDisplayName, (Get-EventText $_))
         }
     }
-    foreach ($log in @((Join-Path $work 'data\redis.log'), (Join-Path $work 'tls\redis.log'), (Join-Path $work 'bin-data\redis.log'))) {
+    foreach ($log in @((Join-Path $work 'data\redis.log'), (Join-Path $vaData 'redis.log'), (Join-Path $work 'tls\redis.log'), (Join-Path $work 'bin-data\redis.log'))) {
         if (Test-Path -LiteralPath $log) { Write-Host "--- tail of $log"; Get-Content -LiteralPath $log -Tail 60 | ForEach-Object { Write-Host $_ } }
     }
 }

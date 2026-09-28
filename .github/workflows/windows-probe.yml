@@ -1,7 +1,8 @@
 name: Windows probe (reports, never fails)
 
 # A diagnostic run of the release checks on real Windows runners: build and package, the smoke test, a
-# direct start with a Windows config path, and the service integration test, for both toolchains. Every
+# direct start with a Windows config path, a virtual-account data-write report, and the service integration
+# test, for both toolchains. Every
 # check reports its outcome in the run summary and the run itself always succeeds, so trying a change on
 # Windows does not send failure notifications. Releases are built and gated by Manual Build Redis, not here.
 
@@ -131,6 +132,17 @@ jobs:
             if (-not $proc.HasExited) { Stop-Process -Id $proc.Id -Force }
           }
 
+      - name: Virtual-account data writes
+        id: vaprobe
+        timeout-minutes: 15
+        if: steps.build.outcome == 'success'
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Expand-Archive -Force -Path "dist/$env:DIST_NAME-with-Service.zip" -DestinationPath "$env:RUNNER_TEMP/pkg"
+          & ./ci/probe-va-save.ps1 -PackageDir (Join-Path $env:RUNNER_TEMP "pkg/$env:DIST_NAME-with-Service")
+
       - name: Service integration test
         id: integration
         timeout-minutes: 45
@@ -139,7 +151,7 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          Expand-Archive -Path "dist/$env:DIST_NAME-with-Service.zip" -DestinationPath "$env:RUNNER_TEMP/pkg"
+          Expand-Archive -Force -Path "dist/$env:DIST_NAME-with-Service.zip" -DestinationPath "$env:RUNNER_TEMP/pkg"
           & ./ci/wrapper-integration.ps1 -PackageDir (Join-Path $env:RUNNER_TEMP "pkg/$env:DIST_NAME-with-Service")
           if ($LASTEXITCODE -ne 0) { throw "ci/wrapper-integration.ps1 failed with exit code $LASTEXITCODE" }
 
@@ -150,12 +162,14 @@ jobs:
           BUILD: ${{ steps.build.outcome }}
           SMOKE: ${{ steps.smoke.outcome }}
           DIRECT: ${{ steps.direct.outcome }}
+          VAPROBE: ${{ steps.vaprobe.outcome }}
           INTEGRATION: ${{ steps.integration.outcome }}
         run: |
           $rows = @(
             @('Build and package', $env:BUILD),
             @('Smoke test', $env:SMOKE),
             @('redis-server.exe with a Windows config path', $env:DIRECT),
+            @('Virtual-account data writes (reports only)', $env:VAPROBE),
             @('Service integration test', $env:INTEGRATION)
           )
           $lines = @("### Windows probe: $env:TOOLCHAIN", '', '| Check | Outcome |', '|---|---|')
