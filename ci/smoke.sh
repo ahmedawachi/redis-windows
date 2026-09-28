@@ -31,6 +31,7 @@
 #       both use the same runtime build; the packaged DLLs are copies of the build
 #       shell's own, so this tests the same code.
 #   SMOKE_KEEP_TMP=1      keep the temp dir (for debugging).
+#   SMOKE_ARTIFACT_DIR    where to save both values when the 2 MB HMGET comparison fails.
 
 set -Eeuo pipefail
 
@@ -204,6 +205,30 @@ step "SET/GET"
 expect_eq "SET" OK "$(rcli SET smoke:str hello-windows)"
 expect_eq "GET" hello-windows "$(rcli GET smoke:str)"
 
+# On an HMGET mismatch, record how the values differ and whether the fork's reply options change the
+# outcome, so a single CI run tells a reply-path bug apart from a client or harness problem.
+diagnose_hmget_mismatch() { # <expected-file> <actual-file>
+    local exp=$1 act=$2 setting again
+    log "expected $(wc -c <"$exp" | tr -d ' ') bytes (cksum $(cksum <"$exp" | cut -d' ' -f1)), got $(wc -c <"$act" | tr -d ' ') bytes (cksum $(cksum <"$act" | cut -d' ' -f1))"
+    log "first difference: $(cmp "$exp" "$act" 2>&1 | head -1)"
+    log "got, first 120 bytes: $(head -c 120 "$act" | LC_ALL=C tr -c '[:print:]' '.')"
+    log "server stats: total_writes_processed=$(info_field stats total_writes_processed) client_oom_disconnections=$(info_field stats client_oom_disconnections)"
+    for setting in "reply-node-max-bytes 0" "oom-soft-client-buffers no"; do
+        # shellcheck disable=SC2086 # setting is "name value" on purpose
+        if [ "$(rcli CONFIG SET $setting 2>/dev/null)" = OK ]; then
+            again="$WORK/hmget-retry.out"
+            "$CLI" -h 127.0.0.1 -p "$PORT" HMGET smoke:hash data >"$again" 2>&1 || true
+            if cmp -s "$exp" "$again"; then log "retry with $setting: the value is correct"; else log "retry with $setting: still different"; fi
+        else
+            log "retry with $setting: not supported by this build"
+        fi
+    done
+    if [ -n "${SMOKE_ARTIFACT_DIR:-}" ] && mkdir -p "$SMOKE_ARTIFACT_DIR"; then
+        cp "$exp" "$SMOKE_ARTIFACT_DIR/hmget.expected" && cp "$act" "$SMOKE_ARTIFACT_DIR/hmget.out" &&
+            log "saved both values to $SMOKE_ARTIFACT_DIR"
+    fi
+}
+
 step "HSET 2 MB field + HMGET"
 BLOB_BYTES=2097152
 # 1572864 random bytes are exactly 2097152 base64 characters (no truncation, no SIGPIPE).
@@ -214,7 +239,8 @@ expect_eq "HSET data (2 MB, via stdin)" 1 "$(rcli -x HSET smoke:hash data <"$WOR
 expect_eq "HSTRLEN data" "$BLOB_BYTES" "$(rcli HSTRLEN smoke:hash data)"
 "$CLI" -h 127.0.0.1 -p "$PORT" HMGET smoke:hash data >"$WORK/hmget.out"
 { cat "$WORK/blob"; printf '\n'; } >"$WORK/hmget.expected"
-cmp -s "$WORK/hmget.expected" "$WORK/hmget.out" || die "HMGET returned a different 2 MB value"
+cmp -s "$WORK/hmget.expected" "$WORK/hmget.out" ||
+    { diagnose_hmget_mismatch "$WORK/hmget.expected" "$WORK/hmget.out"; die "HMGET returned a different 2 MB value"; }
 log "ok: HMGET returned the same 2 MB value"
 expect_eq "HMGET small fields" "$(printf -- '-1\n1200000000')" "$(rcli HMGET smoke:hash absexp sldexp)"
 

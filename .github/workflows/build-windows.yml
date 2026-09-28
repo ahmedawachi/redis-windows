@@ -141,6 +141,7 @@ jobs:
         timeout-minutes: 10
         env:
           FEATURES: ${{ inputs.smoke_fork_features }}
+          SMOKE_ARTIFACT_DIR: dist/smoke-artifacts
         run: |
           if [ "$FEATURES" = series ]; then
             FEATURES=""
@@ -224,4 +225,6 @@ jobs:
         with:
           name: ${{ inputs.artifact_name }}-logs
           if-no-files-found: ignore
-          path: dist/*.log
+          path: |
+            dist/*.log
+            dist/smoke-artifacts/

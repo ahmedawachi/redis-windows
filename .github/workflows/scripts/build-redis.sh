@@ -345,7 +345,12 @@ for b in "${BINARIES[@]}"; do
     after=$(wc -c <"$DIST/$b$EXE" | tr -d ' ')
     [ "$b" = redis-server ] && info "" && info "redis-server size: $before bytes unstripped, $after bytes stripped"
 done
-"$DIST/redis-server$EXE" --version >/dev/null || fail "stripped redis-server does not run"
+# Run a copy: executed next to the bundled runtime DLL from inside the MSYS2/Cygwin shell, it would load a
+# second copy of the runtime. build-windows.yml runs the package as shipped, from PowerShell.
+strip_check=$(mktemp -d)
+cp "$DIST/redis-server$EXE" "$strip_check/"
+"$strip_check/redis-server$EXE" --version >/dev/null || fail "stripped redis-server does not run"
+rm -rf "$strip_check"
 
 cp "$INFO" "$DIST/build-info.txt"
 cp "$INFO" "$DEBUG_DIST/build-info.txt"
