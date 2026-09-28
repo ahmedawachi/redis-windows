@@ -116,7 +116,7 @@ jobs:
           msystem: MSYS
           update: true
           cache: true
-          install: gcc make pkg-config openssl-devel binutils patch zip unzip tcl procps-ng
+          install: gcc make pkg-config openssl-devel binutils patch zip unzip tcl procps-ng diffutils
 
       - name: Set up Cygwin
         if: inputs.toolchain == 'cygwin'

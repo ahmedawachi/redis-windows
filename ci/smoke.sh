@@ -45,6 +45,12 @@ if [ $# -ne 1 ] || [ ! -d "$1" ]; then
 fi
 BIN_DIR=$(cd "$1" && pwd)
 
+# A missing tool must fail as such: without cmp, every byte comparison below would read as a mismatch.
+for tool in cmp cksum base64 head tr wc mktemp; do
+    command -v "$tool" >/dev/null 2>&1 ||
+        { echo "[smoke] FAIL: required tool '$tool' is not installed (MSYS2: pacman -S diffutils coreutils)" >&2; exit 2; }
+done
+
 IS_CYGWIN=0
 case "$(uname -s)" in
     CYGWIN*|MSYS*|MINGW*) IS_CYGWIN=1 ;;

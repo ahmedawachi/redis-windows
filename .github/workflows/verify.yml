@@ -215,7 +215,7 @@ jobs:
           msystem: MSYS
           update: true
           cache: true
-          install: gcc make openssl-devel binutils unzip
+          install: gcc make openssl-devel binutils unzip diffutils
 
       - name: Set up Cygwin
         if: matrix.toolchain == 'cygwin'
