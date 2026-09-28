@@ -1,0 +1,175 @@
+name: Windows probe (reports, never fails)
+
+# A diagnostic run of the release checks on real Windows runners: build and package, the smoke test, a
+# direct start with a Windows config path, and the service integration test, for both toolchains. Every
+# check reports its outcome in the run summary and the run itself always succeeds, so trying a change on
+# Windows does not send failure notifications. Releases are built and gated by Manual Build Redis, not here.
+
+on:
+  workflow_dispatch:
+    inputs:
+      redis_version:
+        description: 'Upstream Redis version'
+        required: true
+        default: '8.10.2'
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    name: Probe (${{ matrix.toolchain }})
+    runs-on: windows-latest
+    timeout-minutes: 150
+    strategy:
+      fail-fast: false
+      matrix:
+        toolchain: [msys2, cygwin]
+    defaults:
+      run:
+        shell: ${{ matrix.toolchain == 'msys2' && 'msys2 {0}' || 'C:\cygwin\bin\bash.exe --login --norc -eo pipefail -o igncr ''{0}''' }}
+    env:
+      CYGWIN_NOWINPATH: "1"
+      CHERE_INVOKING: "1"
+      TOOLCHAIN: ${{ matrix.toolchain }}
+      REDIS_VERSION: ${{ inputs.redis_version }}
+      DIST_NAME: Redis-${{ inputs.redis_version }}-probe-Windows-x64-${{ matrix.toolchain }}
+      WORK_DIR: /tmp/rb
+    steps:
+      - name: Check out without CRLF conversion
+        shell: pwsh
+        run: git config --global core.autocrlf input
+
+      - uses: actions/checkout@v4
+
+      - name: Download the upstream source
+        shell: pwsh
+        run: Invoke-WebRequest -Uri "https://github.com/redis/redis/archive/refs/tags/$env:REDIS_VERSION.tar.gz" -OutFile "redis-$env:REDIS_VERSION.tar.gz"
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Publish RedisService.exe
+        shell: pwsh
+        run: dotnet publish RedisService.csproj -c Release -r win-x64 --self-contained -o publish
+
+      - name: Set up MSYS2
+        if: matrix.toolchain == 'msys2'
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MSYS
+          update: true
+          cache: true
+          install: gcc make pkg-config openssl-devel binutils patch zip unzip tcl procps-ng diffutils
+
+      - name: Set up Cygwin
+        if: matrix.toolchain == 'cygwin'
+        uses: cygwin/cygwin-install-action@v6
+        with:
+          install-dir: C:\cygwin
+          packages: make gcc-core gcc-g++ pkg-config libssl-devel binutils patch zip unzip tcl procps-ng
+
+      - name: Build and package
+        id: build
+        timeout-minutes: 60
+        continue-on-error: true
+        env:
+          REDIS_TARBALL: redis-${{ inputs.redis_version }}.tar.gz
+          OPTIMIZATION: -O2
+          MAKE_CFLAGS: -Wno-char-subscripts
+          BUILD_TLS: "yes"
+          APPLY_PATCHES: "yes"
+          DLFCN_COMPAT: "no"
+          SERVICE_DIR: publish
+          OUT_DIR: dist
+        run: bash .github/workflows/scripts/build-redis.sh
+
+      - name: Smoke test
+        id: smoke
+        timeout-minutes: 15
+        if: steps.build.outcome == 'success'
+        continue-on-error: true
+        env:
+          SMOKE_FORK_FEATURES: meminfo softoom
+          SMOKE_ARTIFACT_DIR: dist/smoke-artifacts
+        run: bash ci/smoke.sh "dist/$DIST_NAME"
+
+      - name: Start redis-server.exe with a Windows config path
+        id: direct
+        timeout-minutes: 5
+        if: steps.build.outcome == 'success'
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $pkg = Join-Path $PWD "dist\$env:DIST_NAME"
+          $port = Get-Random -Minimum 20000 -Maximum 60000
+          $dir = New-Item -ItemType Directory -Path (Join-Path $env:RUNNER_TEMP "direct-$port")
+          $conf = Join-Path $dir.FullName 'probe.conf'
+          "port $port`nbind 127.0.0.1`nsave `"`"`ndir `"$($dir.FullName -replace '\\','/')`"`nmaxmemory-policy allkeys-lru`n" | Set-Content -Encoding ascii $conf
+          $cli = Join-Path $pkg 'redis-cli.exe'
+          $proc = Start-Process -FilePath (Join-Path $pkg 'redis-server.exe') -ArgumentList @(($conf -replace '\\', '/')) -PassThru -NoNewWindow `
+            -RedirectStandardOutput (Join-Path $dir.FullName 'out.txt') -RedirectStandardError (Join-Path $dir.FullName 'err.txt')
+          try {
+            $pong = $null
+            for ($i = 0; $i -lt 40 -and $pong -ne 'PONG'; $i++) {
+              Start-Sleep -Milliseconds 500
+              if ($proc.HasExited) { break }
+              $pong = (& $cli -p $port PING 2>$null | Out-String).Trim()
+            }
+            if ($pong -ne 'PONG') {
+              Get-Content (Join-Path $dir.FullName 'out.txt'), (Join-Path $dir.FullName 'err.txt') -ErrorAction SilentlyContinue | Select-Object -Last 20
+              throw "redis-server.exe did not start with the config path $conf"
+            }
+            $policy = (& $cli -p $port CONFIG GET maxmemory-policy | Out-String)
+            if ($policy -notmatch 'allkeys-lru') { throw "the config file was not applied: $policy" }
+            Write-Output "redis-server.exe started with a Windows config path and applied it"
+            & $cli -p $port SHUTDOWN NOSAVE 2>$null | Out-Null
+          } finally {
+            if (-not $proc.HasExited) { Stop-Process -Id $proc.Id -Force }
+          }
+
+      - name: Service integration test
+        id: integration
+        timeout-minutes: 45
+        if: steps.build.outcome == 'success'
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Expand-Archive -Path "dist/$env:DIST_NAME-with-Service.zip" -DestinationPath "$env:RUNNER_TEMP/pkg"
+          & ./ci/wrapper-integration.ps1 -PackageDir (Join-Path $env:RUNNER_TEMP "pkg/$env:DIST_NAME-with-Service")
+          if ($LASTEXITCODE -ne 0) { throw "ci/wrapper-integration.ps1 failed with exit code $LASTEXITCODE" }
+
+      - name: Summary
+        if: always()
+        shell: pwsh
+        env:
+          BUILD: ${{ steps.build.outcome }}
+          SMOKE: ${{ steps.smoke.outcome }}
+          DIRECT: ${{ steps.direct.outcome }}
+          INTEGRATION: ${{ steps.integration.outcome }}
+        run: |
+          $rows = @(
+            @('Build and package', $env:BUILD),
+            @('Smoke test', $env:SMOKE),
+            @('redis-server.exe with a Windows config path', $env:DIRECT),
+            @('Service integration test', $env:INTEGRATION)
+          )
+          $lines = @("### Windows probe: $env:TOOLCHAIN", '', '| Check | Outcome |', '|---|---|')
+          foreach ($r in $rows) { $lines += "| $($r[0]) | $(if ($r[1]) { $r[1] } else { 'not run' }) |" }
+          $lines | Out-File -Append -Encoding utf8 $env:GITHUB_STEP_SUMMARY
+          $lines | ForEach-Object { Write-Output $_ }
+
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: probe-${{ matrix.toolchain }}-logs
+          if-no-files-found: ignore
+          path: |
+            dist/*.log
+            dist/*-build-info.txt
+            dist/smoke-artifacts/

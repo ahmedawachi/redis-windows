@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: ahmedawachi <121810925+ahmedawachi@users.noreply.github.com>
 Date: Mon, 28 Sep 2026 09:33:15 +0300
-Subject: [PATCH 3/7] cygwin: report real process and system memory through
+Subject: [PATCH 3/8] cygwin: report real process and system memory through
  Win32
 
 What: Cygwin/MSYS2 builds only (HAVE_WIN32_MEMINFO, set in config.h when

@@ -5,9 +5,9 @@ files (`-p1`, relative to the Redis source root). The CI applies them in lexical
 order to the extracted upstream tarball before it builds.
 
 - **Patch base:** Redis 8.10.2 (a security release). The series also applies to
-  8.10.1, the production version, with no fuzz (checked for all seven patches).
-- **Scope:** 0001-0004 are limited to Cygwin/MSYS2 builds, or to the select()
-  event-loop backend. The others build on every platform, and change nothing
+  8.10.1, the production version, with no fuzz (checked for all eight patches).
+- **Scope:** 0001-0004 and 0008 are limited to Cygwin/MSYS2 builds, or to the
+  select() event-loop backend. The others build on every platform, and change nothing
   there unless you turn them on:
   - 0005 is a build-flag fix.
   - 0006 adds `reply-node-max-bytes`, which splits large replies over smaller
@@ -54,6 +54,7 @@ scripts/apply-patches.sh <redis-source-dir>
 | 0005-xxhash-optimization | all | none (xxhash built at -O2 instead of -O0) |
 | 0006-reply-node-cap | all; on by default only on Cygwin/MSYS2 | new hidden config `reply-node-max-bytes`; a large reply uses reply buffers of at most 256 KB |
 | 0007-soft-oom-client-buffers | all; on by default only on Cygwin/MSYS2 | new config `oom-soft-client-buffers`; new INFO stats field `client_oom_disconnections`; `-OOM` error and WARNING log lines; new `DEBUG SET-ALLOC-FAIL-THRESHOLD` |
+| 0008-cygwin-absolute-drive-paths | Cygwin/MSYS2 | `redis-server.exe C:/path/redis.conf` works: Windows drive paths count as absolute |
 
 Each patch's commit message has the full what, why and risk.
 
@@ -329,6 +330,23 @@ Each patch's commit message has the full what, why and risk.
      error, and the key is not created.
   4. On the Windows build, `CONFIG GET oom-soft-client-buffers` returns `yes`
      with no config line.
+
+### 0008: cygwin-absolute-drive-paths
+
+- **What:** on Cygwin/MSYS2 builds, `getAbsolutePath()` returns a path that
+  starts with a drive letter and a separator (`C:/...`, `C:\...`) unchanged,
+  as it already does for a path starting with `/`. A drive-relative path
+  such as `C:redis.conf` is still treated as relative.
+- **Why:** Redis stores its config file path through this helper, which
+  treated anything not starting with `/` as relative and prepended the current
+  directory. `redis-server.exe C:/Redis/redis.conf` therefore tried to open
+  `/<cwd>/C:/Redis/redis.conf` and exited with `Fatal error, can't open config
+  file`, and so did every start by the service, which passes Windows paths.
+  The runtime itself opens Windows paths as they are. The same helper resolves
+  the executable path and AOF directory paths.
+- **How to test:** on Windows, `redis-server.exe C:/path/to/redis.conf` starts,
+  and `CONFIG GET` shows the settings from that file. On other platforms nothing
+  changes; the branch is compiled only with `__CYGWIN__`.
 
 ## Testing
 

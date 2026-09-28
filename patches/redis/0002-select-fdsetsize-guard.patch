@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: ahmedawachi <121810925+ahmedawachi@users.noreply.github.com>
 Date: Mon, 28 Sep 2026 09:30:51 +0300
-Subject: [PATCH 2/7] ae_select: keep every registered fd below FD_SETSIZE
+Subject: [PATCH 2/8] ae_select: keep every registered fd below FD_SETSIZE
 
 What: on builds that use the select() event loop (no epoll, kqueue or
 evport; on the platforms we ship that means Cygwin and MSYS2):
