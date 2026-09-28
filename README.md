@@ -118,6 +118,8 @@ No installer, no .NET, no admin rights needed to try it.
 4. **Try it:** double-click `redis-cli.exe` and type `PING` → `PONG`.
 5. **Stop it:** press **Ctrl+C**, or close the window. Redis saves and shuts down cleanly. Closing the window gives it a few seconds, which is plenty for a development dataset; use Ctrl+C for a big one.
 
+**Setting up a production server?** Follow the **[admin guide](docs/ADMIN-GUIDE.md)**: download to production in one path, every command included, with a sign-off checklist.
+
 **Want it running in the background, starting with Windows?** Move the folder somewhere permanent, such as `C:\Redis`, and double-click **`install-service.bat`**. It asks for admin rights, installs the `Redis` service with its data in the `data` folder next to it, and starts it. **`uninstall-service.bat`** removes the service again and keeps your data.
 
 > [!TIP]
@@ -218,6 +220,7 @@ The full, reasoned plan, including what is deliberately *not* being done and why
 
 | Document | What's inside |
 |---|---|
+| [`docs/ADMIN-GUIDE.md`](docs/ADMIN-GUIDE.md) | **start here to set up a server:** download to production, step by step, with a sign-off checklist |
 | [`docs/OPERATIONS.md`](docs/OPERATIONS.md) | install, upgrade and rollback, monitoring, alerting, security-release policy, incident checklist |
 | [`docs/ROADMAP.md`](docs/ROADMAP.md) | every change with its reasoning, what's deferred, what still needs a Windows measurement |
 | [`patches/redis/README.md`](patches/redis/README.md) | the Redis patch series: what each patch does, its config and INFO fields, how to test it |

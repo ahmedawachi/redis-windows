@@ -6,7 +6,7 @@
 #   <out-dir>            created (or emptied) and filled with:
 #                          site/*                      the site itself
 #                          assets/*                    .github/assets/*
-#                          docs/OPERATIONS.md, ROADMAP.md, LICENSING.md
+#                          docs/ADMIN-GUIDE.md, OPERATIONS.md, ROADMAP.md, LICENSING.md
 #                          docs/patches.md             patches/redis/README.md
 #                          data/bench.json             every dataset, merged
 #                          .nojekyll
@@ -87,7 +87,7 @@ mkdir -p "$out/assets" "$out/docs" "$out/data"
 if [ -d "$repo/.github/assets" ]; then
     cp -R "$repo/.github/assets/." "$out/assets/"
 fi
-for f in OPERATIONS.md ROADMAP.md LICENSING.md; do
+for f in ADMIN-GUIDE.md OPERATIONS.md ROADMAP.md LICENSING.md; do
     if [ -f "$repo/docs/$f" ]; then cp "$repo/docs/$f" "$out/docs/$f"; else note "docs/$f not found; skipped"; fi
 done
 if [ -f "$repo/patches/redis/README.md" ]; then

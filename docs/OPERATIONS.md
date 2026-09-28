@@ -1,7 +1,9 @@
 # Operations guide
 
 How to install, upgrade, monitor and investigate this fork of Redis for Windows
-in production. It assumes the MSYS2 package with the service wrapper
+in production. Setting up a server for the first time? The
+[admin guide](ADMIN-GUIDE.md) walks through it in order; this guide is the
+reference behind it. It assumes the MSYS2 package with the service wrapper
 (`...-msys2-with-Service.zip`). The Cygwin package works the same way.
 
 Contents

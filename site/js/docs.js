@@ -4,6 +4,7 @@ import { spy } from "./toc.js";
 
 const REPO = "https://github.com/ahmedawachi/redis-windows";
 const DOCS = [
+  { key: "admin", file: "docs/ADMIN-GUIDE.md", repo: "docs/ADMIN-GUIDE.md", title: "Admin guide", blurb: "Download to production, step by step, with a sign-off checklist" },
   { key: "operations", file: "docs/OPERATIONS.md", repo: "docs/OPERATIONS.md", title: "Operations", blurb: "Install, upgrade and rollback, monitoring, alerting, incident checklist" },
   { key: "roadmap", file: "docs/ROADMAP.md", repo: "docs/ROADMAP.md", title: "Roadmap", blurb: "Every change with its reasoning, what's deferred" },
   { key: "patches", file: "docs/patches.md", repo: "patches/redis/README.md", title: "Patches", blurb: "What each patch does, its config and INFO fields, how to test it" },
