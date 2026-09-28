@@ -1,0 +1,99 @@
+name: Check the patch series
+
+# Reusable: applies patches/redis/*.patch to an upstream Redis tarball with
+# scripts/apply-patches.sh, on Linux, before any Windows job starts. On failure the job
+# summary names the first patch that does not apply and shows why.
+
+on:
+  workflow_call:
+    inputs:
+      redis_version:
+        required: true
+        type: string
+      required:
+        description: "Fail the job when the series does not apply"
+        required: false
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  apply:
+    name: Patches on Redis ${{ inputs.redis_version }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Apply the series
+        continue-on-error: ${{ !inputs.required }}
+        env:
+          REDIS_VERSION: ${{ inputs.redis_version }}
+        run: |
+          set -euo pipefail
+          case "$REDIS_VERSION" in *[!A-Za-z0-9._-]*|'') echo "::error::invalid redis_version '$REDIS_VERSION'"; exit 1 ;; esac
+          curl -fsSL --retry 3 -o redis.tar.gz "https://github.com/redis/redis/archive/refs/tags/$REDIS_VERSION.tar.gz"
+          shopt -s nullglob
+          patches=(patches/redis/*.patch)
+          {
+            echo "### Patch series on Redis $REDIS_VERSION"
+            echo
+          } >>"$GITHUB_STEP_SUMMARY"
+          if [ ! -f scripts/apply-patches.sh ]; then
+            echo "::error::scripts/apply-patches.sh is missing"
+            echo "scripts/apply-patches.sh is missing." >>"$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          mkdir src
+          tar -xzf redis.tar.gz -C src --strip-components=1
+          if bash scripts/apply-patches.sh src >apply.log 2>&1; then
+            cat apply.log
+            {
+              echo "All ${#patches[@]} patches apply cleanly:"
+              echo
+              for p in "${patches[@]}"; do echo "- \`$(basename "$p")\`"; done
+            } >>"$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          cat apply.log
+          # Find the first patch that does not apply, independently of the script's output.
+          # Outside the checkout: inside a git repository, git apply resolves paths from
+          # the repository root instead of the tree it runs in.
+          diag="$RUNNER_TEMP/diag"
+          mkdir -p "$diag"
+          tar -xzf redis.tar.gz -C "$diag" --strip-components=1
+          first=""
+          for p in "${patches[@]}"; do
+            if (cd "$diag" && git apply --check -p1 <"$GITHUB_WORKSPACE/$p") >check.log 2>&1; then
+              (cd "$diag" && git apply -p1 <"$GITHUB_WORKSPACE/$p")
+            else
+              first=$p
+              break
+            fi
+          done
+          {
+            if [ -n "$first" ]; then
+              echo "**\`$(basename "$first")\` does not apply to Redis $REDIS_VERSION.**"
+              echo
+              echo '```'
+              cat check.log
+              echo '```'
+            else
+              echo "**scripts/apply-patches.sh failed, but every patch applies with git apply.** See its output:"
+            fi
+            echo
+            echo "<details><summary>apply-patches.sh output</summary>"
+            echo
+            echo '```'
+            tail -n 80 apply.log
+            echo '```'
+            echo "</details>"
+          } >>"$GITHUB_STEP_SUMMARY"
+          if [ -n "$first" ]; then
+            echo "::error title=Patch rejected::$(basename "$first") does not apply to Redis $REDIS_VERSION"
+          else
+            echo "::error title=Patch series failed::scripts/apply-patches.sh failed on Redis $REDIS_VERSION"
+          fi
+          exit 1

@@ -1,0 +1,277 @@
+name: Verify
+
+# Builds {msys2, cygwin} x {baseline, fork} on the same runner type and compares them:
+#   baseline = upstream Redis exactly as redis-windows ships it (no patches,
+#              CFLAGS="-Wno-char-subscripts -O0")
+#   fork     = this repository's patch series at OPTIMIZATION (default -O2)
+# Every build passes ci/smoke.sh and runs the Tcl test subset (gating for the fork only).
+# Benchmarks run baseline and fork on ONE runner per toolchain, interleaved, and the
+# comparison table goes to the job summary. The wrapper is tested on both fork packages.
+# Sized for private-repo runners (2 vCPU, 8 GB RAM).
+
+on:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      redis_version:
+        description: 'Upstream Redis version (empty = the patch base below)'
+        required: false
+        default: ''
+        type: string
+      optimization:
+        description: 'Optimization level for the fork build'
+        required: true
+        default: "-O2"
+        type: choice
+        options: ["-O2", "-O0", "-O1", "-O3", "-Os"]
+      run_runtest:
+        description: 'Run the Redis Tcl test subset'
+        default: true
+        type: boolean
+      run_bench:
+        description: 'Run the benchmarks'
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: verify-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  FORK_LABEL: fork
+  # The Redis version the patch series targets.
+  PATCH_BASE_VERSION: "8.10.2"
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: shellcheck the CI scripts
+        run: |
+          shellcheck --version
+          shellcheck ci/*.sh .github/workflows/scripts/*.sh
+
+      - name: actionlint the workflows
+        run: |
+          set -euo pipefail
+          bash <(curl -fsSL https://raw.githubusercontent.com/rhysd/actionlint/v1.7.12/scripts/download-actionlint.bash) 1.7.12
+          ./actionlint -color
+
+      - name: Shipped configs keep DEBUG disabled
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          bad=0
+          for f in conf/*.conf; do
+            # The last directive wins; no directive means the default, "no".
+            value=$(grep -E '^[[:space:]]*enable-debug-command[[:space:]]' "$f" | tail -n 1 | awk '{print $2}' | tr -d "\"'" || true)
+            case "${value:-no}" in
+              no) echo "ok: $f (enable-debug-command ${value:-not set})" ;;
+              *) echo "::error file=$f::enable-debug-command is '$value'; shipped configs must keep it 'no'"; bad=1 ;;
+            esac
+          done
+          exit "$bad"
+
+  prepare:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    outputs:
+      redis_version: ${{ steps.version.outputs.redis_version }}
+      optimization: ${{ steps.version.outputs.optimization }}
+      fork_label: ${{ steps.version.outputs.fork_label }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve the version
+        id: version
+        shell: pwsh
+        env:
+          INPUT_VERSION: ${{ inputs.redis_version }}
+          INPUT_OPTIMIZATION: ${{ inputs.optimization }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $v = if ($env:INPUT_VERSION) { $env:INPUT_VERSION } else { $env:PATCH_BASE_VERSION }
+          if ($v -notmatch '^[0-9]+\.[0-9]+(\.[0-9]+)?(-[A-Za-z0-9.]+)?$') { throw "Invalid redis_version '$v'" }
+          $o = if ($env:INPUT_OPTIMIZATION) { $env:INPUT_OPTIMIZATION } else { '-O2' }
+          "redis_version=$v" | Out-File -Append $env:GITHUB_OUTPUT
+          "optimization=$o" | Out-File -Append $env:GITHUB_OUTPUT
+          "fork_label=$env:FORK_LABEL" | Out-File -Append $env:GITHUB_OUTPUT
+          Invoke-WebRequest -Uri "https://github.com/redis/redis/archive/refs/tags/$v.tar.gz" -OutFile "redis-$v.tar.gz"
+
+      - name: Set up .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Wrapper unit tests
+        shell: pwsh
+        run: dotnet run --project tests/RedisService.Tests -c Release
+
+      - name: Publish RedisService.exe
+        shell: pwsh
+        run: dotnet publish RedisService.csproj -c Release -r win-x64 --self-contained -o publish
+
+      - name: Upload source and RedisService.exe
+        uses: actions/upload-artifact@v4
+        with:
+          name: redis-source
+          if-no-files-found: error
+          path: |
+            redis-${{ steps.version.outputs.redis_version }}.tar.gz
+            publish
+
+  patches:
+    needs: prepare
+    uses: ./.github/workflows/patch-check.yml
+    with:
+      redis_version: ${{ needs.prepare.outputs.redis_version }}
+
+  # The real-server wrapper tests skip on Windows; run them on Linux against the patched tree.
+  wrapper-unit-linux:
+    needs: [prepare, patches]
+    uses: ./.github/workflows/wrapper-unit-linux.yml
+    with:
+      redis_version: ${{ needs.prepare.outputs.redis_version }}
+
+  # The series should also apply to the production version; informational only.
+  patches-8-10-1:
+    uses: ./.github/workflows/patch-check.yml
+    with:
+      redis_version: "8.10.1"
+      required: false
+
+  build:
+    needs: [prepare, patches]
+    strategy:
+      fail-fast: false
+      matrix:
+        toolchain: [msys2, cygwin]
+        variant: [baseline, fork]
+    uses: ./.github/workflows/build-windows.yml
+    with:
+      toolchain: ${{ matrix.toolchain }}
+      redis_version: ${{ needs.prepare.outputs.redis_version }}
+      dist_name: Redis-${{ needs.prepare.outputs.redis_version }}-${{ matrix.variant }}-Windows-x64-${{ matrix.toolchain }}
+      artifact_name: verify-${{ matrix.toolchain }}-${{ matrix.variant }}
+      fork_label: ${{ matrix.variant == 'fork' && needs.prepare.outputs.fork_label || 'baseline' }}
+      optimization: ${{ matrix.variant == 'fork' && needs.prepare.outputs.optimization || 'none' }}
+      make_cflags: ${{ matrix.variant == 'fork' && '-Wno-char-subscripts' || '-Wno-char-subscripts -O0' }}
+      build_tls: true
+      apply_patches: ${{ matrix.variant == 'fork' }}
+      dlfcn_compat: ${{ matrix.variant == 'baseline' }}
+      smoke_fork_features: ${{ matrix.variant == 'fork' && 'series' || 'no' }}
+      with_service: ${{ matrix.variant == 'fork' }}
+      run_runtest: ${{ github.event_name != 'workflow_dispatch' || inputs.run_runtest }}
+      runtest_required: ${{ matrix.variant == 'fork' }}
+
+  bench:
+    needs: [prepare, build]
+    if: github.event_name != 'workflow_dispatch' || inputs.run_bench
+    runs-on: windows-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        toolchain: [msys2, cygwin]
+    defaults:
+      run:
+        shell: ${{ matrix.toolchain == 'msys2' && 'msys2 {0}' || 'C:\cygwin\bin\bash.exe --login --norc -eo pipefail -o igncr ''{0}''' }}
+    env:
+      CYGWIN_NOWINPATH: "1"
+      CHERE_INVOKING: "1"
+      REDIS_VERSION: ${{ needs.prepare.outputs.redis_version }}
+      TOOLCHAIN: ${{ matrix.toolchain }}
+    steps:
+      - name: Check out without CRLF conversion
+        shell: pwsh
+        run: git config --global core.autocrlf input
+
+      - uses: actions/checkout@v4
+
+      - name: Download the baseline package
+        uses: actions/download-artifact@v4
+        with:
+          name: verify-${{ matrix.toolchain }}-baseline
+          path: packages
+
+      - name: Download the fork package
+        uses: actions/download-artifact@v4
+        with:
+          name: verify-${{ matrix.toolchain }}-fork
+          path: packages
+
+      # The benchmarks run the package .exe files against the shell's runtime DLLs
+      # (see BENCH_ISOLATE_RUNTIME in ci/bench.sh), so install the same runtime set.
+      - name: Set up MSYS2
+        if: matrix.toolchain == 'msys2'
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MSYS
+          update: true
+          cache: true
+          install: gcc make openssl-devel binutils unzip
+
+      - name: Set up Cygwin
+        if: matrix.toolchain == 'cygwin'
+        uses: cygwin/cygwin-install-action@v6
+        with:
+          install-dir: C:\cygwin
+          packages: gcc-core gcc-g++ libssl-devel binutils unzip
+
+      - name: Benchmark baseline and fork (interleaved, 3 repetitions)
+        timeout-minutes: 50
+        env:
+          # Sized so that even a slow -O0 build on Cygwin select() stays inside the job
+          # limit; the BGSAVE probe peaks well under 1 GB of commit.
+          BENCH_N_SMALL: "20000"
+          BENCH_N_PIPE: "200000"
+          BENCH_N_LARGE: "300"
+          BENCH_POPULATE_MB: "64 256"
+          BENCH_BGSAVE_REPS: "3"
+        run: |
+          set -euo pipefail
+          base="Redis-$REDIS_VERSION-baseline-Windows-x64-$TOOLCHAIN"
+          fork="Redis-$REDIS_VERSION-fork-Windows-x64-$TOOLCHAIN"
+          (cd packages && unzip -q "$base.zip" && unzip -q "$fork.zip")
+          csv="bench-$TOOLCHAIN.csv"
+          rm -f "$csv"
+          for rep in 1 2 3; do
+            BENCH_LABEL=baseline BENCH_REPS=1 BENCH_REP_START=$rep bash ci/bench.sh "packages/$base" "$csv"
+            BENCH_LABEL=fork BENCH_REPS=1 BENCH_REP_START=$rep bash ci/bench.sh "packages/$fork" "$csv"
+          done
+          {
+            echo "### Benchmarks: $TOOLCHAIN, baseline vs fork"
+            echo
+            echo "Both builds on this one \`windows-latest\` runner, interleaved, median of 3 repetitions."
+            echo "Server CPU is user + sys. Differences under about 10% are within runner noise."
+            echo
+            bash ci/bench.sh --compare "$csv" baseline fork
+            echo
+            echo "Raw rows: artifact \`bench-$TOOLCHAIN\`."
+          } >>"$GITHUB_STEP_SUMMARY"
+
+      - name: Upload benchmark CSV
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bench-${{ matrix.toolchain }}
+          if-no-files-found: warn
+          path: bench-${{ matrix.toolchain }}.csv
+
+  wrapper-integration:
+    needs: [prepare, build]
+    strategy:
+      fail-fast: false
+      matrix:
+        # The wrapper resolves its runtime per package (msys-2.0.dll vs cygwin1.dll).
+        toolchain: [msys2, cygwin]
+    uses: ./.github/workflows/wrapper-integration.yml
+    with:
+      artifact_name: verify-${{ matrix.toolchain }}-fork
+      dist_name: Redis-${{ needs.prepare.outputs.redis_version }}-fork-Windows-x64-${{ matrix.toolchain }}

@@ -1,0 +1,227 @@
+name: Build one Windows package
+
+# Reusable: builds, packages and smoke-tests Redis with one toolchain (MSYS2 or Cygwin).
+# Called by build-redis.yml (releases) and verify.yml (baseline vs fork comparison).
+# The caller must upload an artifact named "redis-source" holding
+# redis-<redis_version>.tar.gz and, when with_service is true, publish/RedisService.exe.
+
+on:
+  workflow_call:
+    inputs:
+      toolchain:
+        description: "msys2 or cygwin"
+        required: true
+        type: string
+      redis_version:
+        required: true
+        type: string
+      dist_name:
+        description: "Package base name, e.g. Redis-8.10.2-fork.1-Windows-x64-msys2"
+        required: true
+        type: string
+      artifact_name:
+        required: true
+        type: string
+      fork_label:
+        description: "Label shown in the start-up banner"
+        required: false
+        type: string
+        default: fork
+      optimization:
+        description: "make OPTIMIZATION=...; 'none' means do not pass it (upstream default)"
+        required: false
+        type: string
+        default: "-O2"
+      make_cflags:
+        description: "make CFLAGS=... (no -O level unless optimization is empty)"
+        required: false
+        type: string
+        default: "-Wno-char-subscripts"
+      build_tls:
+        required: false
+        type: boolean
+        default: true
+      apply_patches:
+        required: false
+        type: boolean
+        default: true
+      dlfcn_compat:
+        description: "Unpatched sources only: compile against a private dlfcn.h copy"
+        required: false
+        type: boolean
+        default: false
+      smoke_fork_features:
+        description: "SMOKE_FORK_FEATURES for ci/smoke.sh, or 'series': expect exactly what patches/redis/ declares"
+        required: false
+        type: string
+        default: "series"
+      with_service:
+        description: "Also produce the -with-Service package (needs publish/ in redis-source)"
+        required: false
+        type: boolean
+        default: true
+      run_runtest:
+        required: false
+        type: boolean
+        default: false
+      runtest_required:
+        description: "Fail the job when the Tcl test subset fails"
+        required: false
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: ${{ inputs.dist_name }}
+    runs-on: windows-latest
+    timeout-minutes: 120
+    defaults:
+      run:
+        shell: ${{ inputs.toolchain == 'msys2' && 'msys2 {0}' || 'C:\cygwin\bin\bash.exe --login --norc -eo pipefail -o igncr ''{0}''' }}
+    env:
+      # Cygwin login shells: keep the Windows PATH out and stay in the workspace.
+      CYGWIN_NOWINPATH: "1"
+      CHERE_INVOKING: "1"
+      TOOLCHAIN: ${{ inputs.toolchain }}
+      REDIS_VERSION: ${{ inputs.redis_version }}
+      DIST_NAME: ${{ inputs.dist_name }}
+      FORK_LABEL: ${{ inputs.fork_label }}
+      # A short build path keeps the Tcl suite's unix socket paths under the 108-byte limit.
+      WORK_DIR: /tmp/rb
+
+    steps:
+      - name: Check the toolchain input
+        if: inputs.toolchain != 'msys2' && inputs.toolchain != 'cygwin'
+        shell: pwsh
+        run: throw "toolchain must be msys2 or cygwin, got '$env:TOOLCHAIN'"
+
+      - name: Check out without CRLF conversion
+        shell: pwsh
+        run: git config --global core.autocrlf input
+
+      - uses: actions/checkout@v4
+
+      - name: Download source
+        uses: actions/download-artifact@v4
+        with:
+          name: redis-source
+
+      - name: Set up MSYS2
+        if: inputs.toolchain == 'msys2'
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MSYS
+          update: true
+          cache: true
+          install: gcc make pkg-config openssl-devel binutils patch zip unzip tcl procps-ng
+
+      - name: Set up Cygwin
+        if: inputs.toolchain == 'cygwin'
+        uses: cygwin/cygwin-install-action@v6
+        with:
+          install-dir: C:\cygwin
+          packages: make gcc-core gcc-g++ pkg-config libssl-devel binutils patch zip unzip tcl procps-ng
+
+      - name: Build and package
+        env:
+          REDIS_TARBALL: redis-${{ inputs.redis_version }}.tar.gz
+          OPTIMIZATION: ${{ inputs.optimization != 'none' && inputs.optimization || '' }}
+          MAKE_CFLAGS: ${{ inputs.make_cflags }}
+          BUILD_TLS: ${{ inputs.build_tls && 'yes' || 'no' }}
+          APPLY_PATCHES: ${{ inputs.apply_patches && 'yes' || 'no' }}
+          DLFCN_COMPAT: ${{ inputs.dlfcn_compat && 'yes' || 'no' }}
+          SERVICE_DIR: ${{ inputs.with_service && 'publish' || '' }}
+          OUT_DIR: dist
+        run: bash .github/workflows/scripts/build-redis.sh
+
+      - name: Smoke test (ci/smoke.sh)
+        timeout-minutes: 10
+        env:
+          FEATURES: ${{ inputs.smoke_fork_features }}
+        run: |
+          if [ "$FEATURES" = series ]; then
+            FEATURES=""
+            if grep -qs process_private_bytes patches/redis/*.patch; then FEATURES="meminfo"; fi
+            if grep -qs oom-soft-client-buffers patches/redis/*.patch; then FEATURES="$FEATURES softoom"; fi
+            FEATURES=${FEATURES:-no}
+          fi
+          echo "Fork features expected by the smoke test: $FEATURES"
+          SMOKE_FORK_FEATURES=$FEATURES bash ci/smoke.sh "dist/$DIST_NAME"
+
+      - name: Run the package natively (bundled DLLs, no Cygwin parent)
+        timeout-minutes: 5
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $pkg = Join-Path $PWD "dist\$env:DIST_NAME"
+          foreach ($exe in 'redis-server', 'redis-cli', 'redis-benchmark', 'redis-check-rdb', 'redis-check-aof', 'redis-sentinel') {
+            $out = & (Join-Path $pkg "$exe.exe") --version 2>&1 | Out-String
+            if ($LASTEXITCODE -ne 0) { throw "$exe.exe --version failed with exit code $LASTEXITCODE (a DLL is probably missing from the package): $out" }
+          }
+          $version = & (Join-Path $pkg 'redis-server.exe') --version | Out-String
+          Write-Output $version
+          if ($version -notmatch ('v=' + [regex]::Escape($env:REDIS_VERSION) + ' ')) {
+            throw "Version check failed. Expected v=$env:REDIS_VERSION, got: $version"
+          }
+          $port = Get-Random -Minimum 20000 -Maximum 60000
+          $data = New-Item -ItemType Directory -Path (Join-Path $env:RUNNER_TEMP "native-$port")
+          $dir = $data.FullName -replace '\\', '/'
+          $cli = Join-Path $pkg 'redis-cli.exe'
+          $proc = Start-Process -FilePath (Join-Path $pkg 'redis-server.exe') -PassThru -NoNewWindow `
+            -ArgumentList @('--port', "$port", '--bind', '127.0.0.1', '--dir', $dir, '--logfile', 'native.log')
+          try {
+            $pong = $null
+            for ($i = 0; $i -lt 60 -and $pong -ne 'PONG'; $i++) {
+              Start-Sleep -Milliseconds 500
+              if ($proc.HasExited) { throw "redis-server.exe exited during start-up with code $($proc.ExitCode)" }
+              $pong = (& $cli -p $port PING 2>$null | Out-String).Trim()
+            }
+            if ($pong -ne 'PONG') { throw "No PONG from the native server within 30 s" }
+            if ((& $cli -p $port SET native ok | Out-String).Trim() -ne 'OK') { throw "SET failed" }
+            if ((& $cli -p $port GET native | Out-String).Trim() -ne 'ok') { throw "GET failed" }
+            & $cli -p $port SHUTDOWN NOSAVE 2>$null | Out-Null
+            if (-not $proc.WaitForExit(30000)) { throw "redis-server.exe did not exit after SHUTDOWN" }
+            if ($proc.ExitCode -ne 0) { throw "redis-server.exe exited with code $($proc.ExitCode) after SHUTDOWN" }
+            if (Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue) { throw "Port $port is still listening" }
+            Write-Output "Native package check passed on port $port"
+          } finally {
+            if (-not $proc.HasExited) { Stop-Process -Id $proc.Id -Force }
+            Get-Content (Join-Path $data.FullName 'native.log') -ErrorAction SilentlyContinue | Select-Object -Last 20
+          }
+
+      - name: Redis test subset (ci/runtest-subset.sh)
+        id: runtest
+        if: inputs.run_runtest
+        timeout-minutes: 60
+        continue-on-error: ${{ !inputs.runtest_required }}
+        run: bash ci/runtest-subset.sh "$WORK_DIR/redis-$REDIS_VERSION"
+
+      - name: Record the test subset result
+        if: always() && inputs.run_runtest
+        shell: pwsh
+        env:
+          OUTCOME: ${{ steps.runtest.outcome }}
+          REQUIRED: ${{ inputs.runtest_required }}
+        run: |
+          "Tcl test subset for $env:DIST_NAME`: **$env:OUTCOME** (gating: $env:REQUIRED)" | Out-File -Append $env:GITHUB_STEP_SUMMARY
+
+      - name: Upload packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.artifact_name }}
+          if-no-files-found: error
+          path: |
+            dist/*.zip
+            dist/hashes-*.txt
+            dist/*-build-info.txt
+
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.artifact_name }}-logs
+          if-no-files-found: ignore
+          path: dist/*.log

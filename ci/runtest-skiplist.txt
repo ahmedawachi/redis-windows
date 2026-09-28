@@ -1,0 +1,13 @@
+# Tests skipped by ci/runtest-subset.sh on Cygwin/MSYS2 builds only (not on macOS/Linux).
+#
+# One entry per line; '#' starts a comment.
+#   <exact test name>     skip that test
+#   /<regexp>             skip every test whose name matches
+#   unit:<unit>           skip a whole unit, e.g. unit:unit/networking
+#
+# Every entry must say why it cannot pass on Windows. A test that fails because of a
+# change in this fork is a bug in the fork, not a skip-list entry.
+
+# pause_process reads the process state with "ps -o state= -p <pid>". Cygwin's and
+# MSYS2's own ps has no -o option (tests/support/util.tcl get_proc_state).
+/^prefetch works as expected

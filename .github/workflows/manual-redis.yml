@@ -3,25 +3,45 @@ name: Manual Build Redis
 on:
   workflow_dispatch:
     inputs:
-      tag_name:
-        description: 'Redis Version'
+      redis_version:
+        description: 'Upstream Redis version (tag)'
         required: true
-        default: "7.0.14"
+        default: "8.10.2"
         type: string
+      fork_revision:
+        description: 'Fork revision: the release is tagged <version>-fork.<revision>'
+        required: true
+        default: 1
+        type: number
+      optimization:
+        description: 'Optimization level (make OPTIMIZATION=); -O0 is the fallback'
+        required: true
+        default: "-O2"
+        type: choice
+        options: ["-O2", "-O0", "-O1", "-O3", "-Os"]
+      build_tls:
+        description: 'Build with TLS support'
+        default: true
+        type: boolean
       make_latest:
         description: 'Mark as Latest Release'
         default: false
         type: boolean
       prerelease:
         description: 'Mark as Pre-release'
-        default: false
+        default: true
         type: boolean
+
+permissions:
+  contents: write
 
 jobs:
   build-redis:
     uses: ./.github/workflows/build-redis.yml
     with:
-      release_version: ${{ inputs.tag_name }}
+      redis_version: ${{ inputs.redis_version }}
+      fork_revision: ${{ inputs.fork_revision }}
+      optimization: ${{ inputs.optimization }}
+      build_tls: ${{ inputs.build_tls }}
       make_latest: ${{ inputs.make_latest }}
       prerelease: ${{ inputs.prerelease }}
-    secrets: inherit

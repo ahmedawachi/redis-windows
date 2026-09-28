@@ -1,0 +1,845 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: ahmedawachi <121810925+ahmedawachi@users.noreply.github.com>
+Date: Mon, 28 Sep 2026 10:14:48 +0300
+Subject: [PATCH 7/7] networking: close only the client when its buffer cannot
+ be allocated
+
+What: new config oom-soft-client-buffers (yes|no, MODIFIABLE). Default
+yes on Cygwin/MSYS2 builds (__CYGWIN__), no elsewhere. When it is on,
+the client buffers below are allocated with the existing try-allocators
+(ztrymalloc_usable, sdstrynewlen, and new sdsTryMakeRoomFor /
+sdsTryMakeRoomForNonGreedy), for real socket clients only. A failure
+closes that one client instead of aborting the server:
+
+- Query buffer growth in readQueryFromClient() (both the big-argument,
+  non-greedy path and the greedy path). Nothing of the request has run,
+  so the client gets "-OOM could not allocate the query buffer for this
+  request, closing the connection" and is closed after that reply. This
+  goes through a new read error, CLIENT_READ_QUERYBUF_OOM, so it works
+  from IO threads too. The unread request keeps the socket readable, so
+  if the growth fails again before that reply is written (the client is
+  not reading earlier replies), the client is closed at once instead of
+  being polled forever.
+- The size hint in processMultibulkBuffer() and the speculative
+  pre-allocation after a fat argument are only optimisations: when they
+  fail softly they are skipped (the hint) or fall back to the normal
+  16 KB buffer (the pre-allocation), and the read path above decides.
+- Reply list nodes created by _addReplyPayloadToList() for plain
+  payloads on the client's own reply list. The command has already run,
+  so its reply is lost, the same as a network drop: the client is closed
+  asynchronously (freeClientAsync / CLIENT_CLOSE_ASAP), and nothing else
+  it pipelined runs. For a write command the write stays applied and
+  propagated.
+
+Both count in the new INFO stats field client_oom_disconnections (reset
+by CONFIG RESETSTAT) and log one WARNING line with the client info, at
+most once per second.
+
+Not affected, and still fatal: masters, replicas and monitors, fake
+clients (Lua and function callers, modules, AOF loading), copy-avoidance
+reply nodes (they hold an object reference), push messages queued during
+a command, the keyspace, replication, AOF/RDB, module, Lua and MULTI
+allocations, and every other allocation.
+
+Fault injection: DEBUG SET-ALLOC-FAIL-THRESHOLD <bytes> makes the soft
+allocations above fail when they request <bytes> or more (0 = off). It
+only affects those allocations, only while oom-soft-client-buffers is
+on, and DEBUG stays behind enable-debug-command as usual. It works on
+every platform, so the behaviour is tested on Linux and macOS too.
+
+Why: in a production deployment of the MSYS2 build, one 1.87 MB reply
+allocation failed and the whole cache went down for 33 minutes. With this patch the same failure closes one
+connection, which StackExchange.Redis reconnects. Large fresh commits
+are the allocations most likely to fail first on this platform. This
+buys time; it does not make the server immune: any other allocation
+that fails still aborts.
+
+A failed sdsTryMakeRoomFor() leaves 's' valid: sizes of SIZE_MAX/2 or
+more, for which ztryrealloc frees the old buffer, are refused before
+anything is allocated.
+
+Tests: tests/unit/win-soft-oom.tcl. With the threshold set, a 2 MB
+HMGET closes only that client while another client's PING works and
+client_oom_disconnections is 1; pipelined commands after it do not run;
+a write inside EXEC stays applied; EVAL returning a 2 MB value closes the
+caller deterministically; a 2 MB HSET gets -OOM and writes nothing, on a
+raw socket and through a regular client; a client with 40 MB of unread
+replies whose HSET fails is closed and the event loop stays idle; the
+same with io-threads 2; small requests are unaffected; with
+oom-soft-client-buffers no the threshold has no effect; the default is
+yes only on Cygwin/MSYS2; DEBUG is refused with enable-debug-command no.
+
+Risk: medium. It touches the reply hot path (one extra flag test per new
+reply node) and the query buffer growth path. With the option off, the
+code paths are the upstream ones (apart from the node cap in the
+previous patch).
+---
+ redis.conf                  |  11 ++
+ src/config.c                |   1 +
+ src/debug.c                 |  16 ++
+ src/networking.c            | 143 ++++++++++++++++-
+ src/sds.c                   |  31 +++-
+ src/sds.h                   |   2 +
+ src/server.c                |   4 +
+ src/server.h                |  12 ++
+ tests/unit/win-soft-oom.tcl | 310 ++++++++++++++++++++++++++++++++++++
+ 9 files changed, 518 insertions(+), 12 deletions(-)
+
+diff --git a/redis.conf b/redis.conf
+index 1d1c628..33b1191 100644
+--- a/redis.conf
++++ b/redis.conf
+@@ -2483,6 +2483,17 @@ client-output-buffer-limit pubsub 32mb 8mb 60
+ #
+ # client-query-buffer-limit 1gb
+ 
++# When a client's query buffer or reply buffer cannot be allocated because
++# the system is out of memory, Redis normally aborts. With
++# oom-soft-client-buffers enabled, only that client is disconnected instead:
++# a request whose query buffer cannot grow gets an -OOM error, and a client
++# whose reply cannot be buffered is closed (a reply to a write that already
++# ran is lost, as on a network drop). INFO stats counts these clients in
++# client_oom_disconnections. Masters, replicas and all other allocations are
++# not affected. Default: yes on Cygwin/MSYS2 (Windows) builds, no elsewhere.
++#
++# oom-soft-client-buffers yes
++
+ # Defines how many commands in each client pipeline to decode and prefetch
+ # lookahead 16
+ 
+diff --git a/src/config.c b/src/config.c
+index 6d6fc92..7f718cc 100644
+--- a/src/config.c
++++ b/src/config.c
+@@ -3453,6 +3453,7 @@ standardConfig static_configs[] = {
+     createBoolConfig("aof-disable-auto-gc", NULL, MODIFIABLE_CONFIG | HIDDEN_CONFIG, server.aof_disable_auto_gc, 0, NULL, updateAofAutoGCEnabled),
+     createBoolConfig("replica-ignore-disk-write-errors", NULL, MODIFIABLE_CONFIG, server.repl_ignore_disk_write_error, 0, NULL, NULL),
+     createBoolConfig("hide-user-data-from-log", NULL, MODIFIABLE_CONFIG, server.hide_user_data_from_log, 0, NULL, NULL),
++    createBoolConfig("oom-soft-client-buffers", NULL, MODIFIABLE_CONFIG, server.oom_soft_client_buffers, CONFIG_DEFAULT_OOM_SOFT_CLIENT_BUFFERS, NULL, NULL),
+     createBoolConfig("lazyexpire-nested-arbitrary-keys", NULL, MODIFIABLE_CONFIG | HIDDEN_CONFIG, server.lazyexpire_nested_arbitrary_keys, 1, NULL, NULL),
+     createEnumConfig("cluster-slot-stats-enabled", NULL, MODIFIABLE_CONFIG | MULTI_ARG_CONFIG, cluster_slot_stats_enum, server.cluster_slot_stats_enabled, 0, NULL, updateMemoryTrackingEnabled),
+     createBoolConfig("lua-enable-deprecated-api", NULL, IMMUTABLE_CONFIG | HIDDEN_CONFIG, server.lua_enable_deprecated_api, 0, NULL, NULL),
+diff --git a/src/debug.c b/src/debug.c
+index 475ae08..d24b9a0 100644
+--- a/src/debug.c
++++ b/src/debug.c
+@@ -520,6 +520,10 @@ void debugCommand(client *c) {
+ "    Setting it to 0 disables expiring keys (and hash-fields) in background ",
+ "    when they are not accessed (otherwise the Redis behavior). Setting it",
+ "    to 1 reenables back the default.",
++"SET-ALLOC-FAIL-THRESHOLD <bytes>",
++"    Make client buffer allocations of <bytes> or more fail, as if the system",
++"    were out of memory. Only affects the allocations that oom-soft-client-buffers",
++"    lets fail softly, and only while that option is on. 0 disables it.",
+ "SET-ALLOW-ACCESS-EXPIRED <0|1>",
+ "    Setting it to 0 prevents access to expired keys (and hash-fields),",
+ "    simulating the standard Redis behavior. Setting it to 1 allows",
+@@ -968,6 +972,18 @@ NULL
+     {
+         server.active_expire_enabled = atoi(c->argv[2]->ptr);
+         addReply(c,shared.ok);
++    } else if (!strcasecmp(c->argv[1]->ptr,"set-alloc-fail-threshold") &&
++               c->argc == 3)
++    {
++        long long bytes;
++        if (getLongLongFromObjectOrReply(c, c->argv[2], &bytes, NULL) != C_OK)
++            return;
++        if (bytes < 0) {
++            addReplyError(c, "the threshold must be 0 (off) or a number of bytes");
++            return;
++        }
++        server.client_alloc_fail_threshold = (size_t)bytes;
++        addReply(c,shared.ok);
+     } else if (!strcasecmp(c->argv[1]->ptr,"set-allow-access-expired") &&
+                c->argc == 3)
+     {
+diff --git a/src/networking.c b/src/networking.c
+index b92168d..db8b4ed 100644
+--- a/src/networking.c
++++ b/src/networking.c
+@@ -369,6 +369,68 @@ int prepareClientToWrite(client *c) {
+     return _prepareClientToWrite(c);
+ }
+ 
++/* -----------------------------------------------------------------------------
++ * oom-soft-client-buffers: client buffers that fail softly.
++ *
++ * With the option on, the reply list nodes and the query buffer of a real
++ * socket client are allocated with the try-allocators. When such an
++ * allocation fails, only that client is closed; the server does not abort.
++ * Masters, replicas, monitors and fake clients (Lua, modules, AOF loading)
++ * keep the aborting allocators, like every other allocation.
++ * -------------------------------------------------------------------------- */
++
++static inline int clientBuffersMayFailSoftly(client *c) {
++    return server.oom_soft_client_buffers && c->conn &&
++           !(c->flags & (CLIENT_MASTER|CLIENT_SLAVE|CLIENT_SCRIPT|CLIENT_MODULE));
++}
++
++/* Fault injection (DEBUG SET-ALLOC-FAIL-THRESHOLD): make a soft allocation
++ * of 'size' bytes or more fail. It never affects any other allocation. */
++static inline int softClientAllocMustFail(size_t size) {
++    size_t threshold = server.client_alloc_fail_threshold;
++    return threshold && size >= threshold;
++}
++
++/* Soft variant of sdsMakeRoomFor() / sdsMakeRoomForNonGreedy() for query
++ * buffers. Returns NULL, leaving 's' unchanged, when the allocation fails. */
++static sds querybufTryMakeRoomFor(sds s, size_t addlen, int greedy) {
++    if (sdsavail(s) >= addlen) return s;
++    if (softClientAllocMustFail(sdslen(s) + addlen)) return NULL;
++    return greedy ? sdsTryMakeRoomFor(s, addlen) : sdsTryMakeRoomForNonGreedy(s, addlen);
++}
++
++/* Log at most one soft OOM line per second; INFO has the exact count. */
++static int softOomLogAllowed(void) {
++    static time_t last_log = 0;
++    if (last_log == server.unixtime) return 0;
++    last_log = server.unixtime;
++    return 1;
++}
++
++/* A reply list node could not be allocated. The command has already run, so
++ * its reply is lost, as it would be on a network drop: close the client once
++ * the current command returns. */
++static void closeClientOnReplyOom(client *c, size_t size) {
++    if (c->flags & CLIENT_CLOSE_ASAP) return;
++    freeClientAsync(c);
++    atomicIncr(server.stat_client_oom_disconnections, 1);
++    if (softOomLogAllowed()) {
++        sds client = catClientInfoString(sdsempty(),c);
++        serverLog(LL_WARNING,
++                  "Client %s scheduled to be closed ASAP: could not allocate %zu bytes for its reply (oom-soft-client-buffers).",
++                  client, size);
++        sdsfree(client);
++    }
++}
++
++/* The query buffer could not grow. Nothing of the request has run yet;
++ * handleClientReadError() replies -OOM and closes the client. */
++static void setQuerybufOomReadError(client *c) {
++    c->read_error = CLIENT_READ_QUERYBUF_OOM;
++    if (c->running_tid != IOTHREAD_MAIN_THREAD_ID)
++        enqueuePendingClientsToMainThread(c, 0);
++}
++
+ /* -----------------------------------------------------------------------------
+  * Low level functions to add more data to output buffers.
+  * -------------------------------------------------------------------------- */
+@@ -399,6 +461,9 @@ static void _addReplyPayloadToList(client *c, list *reply_list, const char *payl
+     clientReplyBlock *tail = ln ? listNodeValue(ln) : NULL;
+     /* Determine if encoded buffer is required */
+     int encoded = payload_type == BULK_STR_REF;
++    /* Only plain replies to the client itself may fail softly: an encoded
++     * payload holds an object reference that must not be dropped. */
++    int soft = !encoded && reply_list == c->reply && clientBuffersMayFailSoftly(c);
+ 
+     /* Note that 'tail' may be NULL even if we have a tail node, because when
+      * addReplyDeferredLen() is used, it sets a dummy node to NULL just
+@@ -441,7 +506,17 @@ static void _addReplyPayloadToList(client *c, list *reply_list, const char *payl
+             size_t required_size = encoded ? len + sizeof(payloadHeader) : len;
+             size_t size = required_size < PROTO_REPLY_CHUNK_BYTES ? PROTO_REPLY_CHUNK_BYTES : required_size;
+             if (!encoded && node_max && size > node_max) size = node_max;
+-            tail = zmalloc_usable(size + sizeof(clientReplyBlock), &usable_size);
++            if (soft) {
++                size_t alloc_size = size + sizeof(clientReplyBlock);
++                tail = softClientAllocMustFail(alloc_size) ? NULL :
++                       ztrymalloc_usable(alloc_size, &usable_size);
++                if (unlikely(tail == NULL)) {
++                    closeClientOnReplyOom(c, alloc_size);
++                    return;
++                }
++            } else {
++                tail = zmalloc_usable(size + sizeof(clientReplyBlock), &usable_size);
++            }
+             /* take over the allocation's internal fragmentation */
+             tail->size = usable_size - sizeof(clientReplyBlock);
+             tail->used = 0;
+@@ -3439,8 +3514,14 @@ static int processMultibulkBuffer(client *c, pendingCommand *pcmd) {
+                     querybuf_len = sdslen(c->querybuf);
+                     c->qb_pos = 0;
+                     /* Hint the sds library about the amount of bytes this string is
+-                     * going to contain. */
+-                    c->querybuf = sdsMakeRoomForNonGreedy(c->querybuf,ll+2-querybuf_len);
++                     * going to contain. If a soft allocation fails, skip the hint:
++                     * readQueryFromClient() grows the buffer and fails softly. */
++                    if (clientBuffersMayFailSoftly(c)) {
++                        sds qb = querybufTryMakeRoomFor(c->querybuf,ll+2-querybuf_len,0);
++                        if (qb) c->querybuf = qb;
++                    } else {
++                        c->querybuf = sdsMakeRoomForNonGreedy(c->querybuf,ll+2-querybuf_len);
++                    }
+                     /* We later set the peak to the used portion of the buffer, but here we over
+                      * allocated because we know what we need, make sure it'll not be shrunk before used. */
+                     if (c->querybuf_peak < (size_t)ll + 2) c->querybuf_peak = ll + 2;
+@@ -3478,9 +3559,16 @@ static int processMultibulkBuffer(client *c, pendingCommand *pcmd) {
+                 sdsIncrLen(c->querybuf,-2); /* remove CRLF */
+                 /* Assume that if we saw a fat argument we'll see another one likely...
+                  * But only if that fat argument is not too big compared to the memory limit. */
++                c->querybuf = NULL;
+                 if (!server.maxmemory || (size_t)c->bulklen < server.maxmemory / 32) {
+-                    c->querybuf = sdsnewlen(SDS_NOINIT,c->bulklen+2);
+-                } else {
++                    if (!clientBuffersMayFailSoftly(c)) {
++                        c->querybuf = sdsnewlen(SDS_NOINIT,c->bulklen+2);
++                    } else if (!softClientAllocMustFail((size_t)c->bulklen+2)) {
++                        c->querybuf = sdstrynewlen(SDS_NOINIT,c->bulklen+2);
++                    }
++                }
++                /* A failed soft pre-allocation falls back to the normal size. */
++                if (c->querybuf == NULL) {
+                     c->querybuf = sdsnewlen(SDS_NOINIT, PROTO_IOBUF_LEN);
+                 }
+                 sdsclear(c->querybuf);
+@@ -3684,6 +3772,29 @@ void handleClientReadError(client *c) {
+                 sdsfree(info);
+             }
+             break;
++        case CLIENT_READ_QUERYBUF_OOM: {
++            if (c->flags & CLIENT_CLOSE_ASAP) break;
++            /* A later read failed again: the unread request keeps the socket
++             * readable, and the -OOM reply is still queued behind replies the
++             * client is not reading. Close now instead of polling it forever;
++             * the client was already counted. */
++            if (c->flags & CLIENT_CLOSE_AFTER_REPLY) {
++                freeClientAsync(c);
++                break;
++            }
++            if (softOomLogAllowed()) {
++                sds ci = catClientInfoString(sdsempty(),c);
++                serverLog(LL_WARNING,"Closing client that could not allocate its query buffer (oom-soft-client-buffers): %s (pending bulk length: %ld)", ci, c->bulklen);
++                sdsfree(ci);
++            }
++            addReplyError(c,"-OOM could not allocate the query buffer for this request, closing the connection");
++            /* If the reply itself could not be queued, closeClientOnReplyOom()
++             * has already counted this client. */
++            if (!(c->flags & CLIENT_CLOSE_ASAP))
++                atomicIncr(server.stat_client_oom_disconnections, 1);
++            c->flags |= CLIENT_CLOSE_AFTER_REPLY;
++            break;
++        }
+         case CLIENT_READ_REACHED_MAX_QUERYBUF: {
+             sds ci = catClientInfoString(sdsempty(),c), bytes = sdsempty();
+             bytes = sdscatrepr(bytes,c->querybuf,64);
+@@ -3996,12 +4107,30 @@ void readQueryFromClient(connection *conn) {
+          * need, so using the non-greedy growing. For an initial allocation of
+          * the query buffer, we also don't wanna use the greedy growth, in order
+          * to avoid collision with the RESIZE_THRESHOLD mechanism. */
+-        c->querybuf = sdsMakeRoomForNonGreedy(c->querybuf, readlen);
++        if (clientBuffersMayFailSoftly(c)) {
++            sds qb = querybufTryMakeRoomFor(c->querybuf, readlen, 0);
++            if (unlikely(qb == NULL)) {
++                setQuerybufOomReadError(c);
++                goto done;
++            }
++            c->querybuf = qb;
++        } else {
++            c->querybuf = sdsMakeRoomForNonGreedy(c->querybuf, readlen);
++        }
+         /* We later set the peak to the used portion of the buffer, but here we over
+          * allocated because we know what we need, make sure it'll not be shrunk before used. */
+         if (c->querybuf_peak < qblen + readlen) c->querybuf_peak = qblen + readlen;
+     } else {
+-        c->querybuf = sdsMakeRoomFor(c->querybuf, readlen);
++        if (clientBuffersMayFailSoftly(c)) {
++            sds qb = querybufTryMakeRoomFor(c->querybuf, readlen, 1);
++            if (unlikely(qb == NULL)) {
++                setQuerybufOomReadError(c);
++                goto done;
++            }
++            c->querybuf = qb;
++        } else {
++            c->querybuf = sdsMakeRoomFor(c->querybuf, readlen);
++        }
+ 
+         /* Read as much as possible from the socket to save read(2) system calls. */
+         readlen = sdsavail(c->querybuf);
+diff --git a/src/sds.c b/src/sds.c
+index 718f7d3..2ab72e3 100644
+--- a/src/sds.c
++++ b/src/sds.c
+@@ -272,10 +272,12 @@ void sdsclear(sds s) {
+  * When greedy is 1, enlarge more than needed, to avoid need for future reallocs
+  * on incremental growth.
+  * When greedy is 0, enlarge just enough so that there's free space for 'addlen'.
++ * When trymalloc is 1, return NULL instead of aborting when the allocation
++ * fails; 's' is then left unchanged and still valid.
+  *
+  * Note: this does not change the *length* of the sds string as returned
+  * by sdslen(), but only the free buffer space we have. */
+-sds _sdsMakeRoomFor(sds s, size_t addlen, int greedy) {
++sds _sdsMakeRoomFor(sds s, size_t addlen, int greedy, int trymalloc) {
+     void *sh, *newsh;
+     size_t avail = sdsavail(s);
+     size_t len, newlen, reqlen;
+@@ -290,6 +292,7 @@ sds _sdsMakeRoomFor(sds s, size_t addlen, int greedy) {
+     len = sdslen(s);
+     sh = (char*)s-sdsHdrSize(oldtype);
+     reqlen = newlen = (len+addlen);
++    if (trymalloc && newlen <= len) return NULL; /* size_t overflow */
+     assert(newlen > len);   /* Catch size_t overflow */
+     if (greedy == 1) {
+         if (newlen < SDS_MAX_PREALLOC)
+@@ -306,10 +309,16 @@ sds _sdsMakeRoomFor(sds s, size_t addlen, int greedy) {
+     if (type == SDS_TYPE_5) type = SDS_TYPE_8;
+ 
+     hdrlen = sdsHdrSize(type);
++    if (trymalloc && hdrlen + newlen + 1 <= reqlen) return NULL; /* size_t overflow */
+     assert(hdrlen + newlen + 1 > reqlen);  /* Catch size_t overflow */
++    /* ztryrealloc frees the old pointer for sizes >= SIZE_MAX/2: refuse them
++     * here so that a failed try-allocation never invalidates 's'. */
++    if (trymalloc && hdrlen + newlen + 1 >= SIZE_MAX/2) return NULL;
+     use_realloc = (oldtype == type);
+     if (use_realloc) {
+-        newsh = s_realloc_usable(sh, hdrlen + newlen + 1, &bufsize, NULL);
++        newsh = trymalloc ?
++            s_tryrealloc_usable(sh, hdrlen + newlen + 1, &bufsize, NULL) :
++            s_realloc_usable(sh, hdrlen + newlen + 1, &bufsize, NULL);
+         if (newsh == NULL) return NULL;
+         s = (char*)newsh + hdrlen;
+         if (adjustTypeIfNeeded(&type, &hdrlen, bufsize)) {
+@@ -321,7 +330,9 @@ sds _sdsMakeRoomFor(sds s, size_t addlen, int greedy) {
+     } else {
+         /* Since the header size changes, need to move the string forward,
+          * and can't use realloc */
+-        newsh = s_malloc_usable(hdrlen + newlen + 1, &bufsize);
++        newsh = trymalloc ?
++            s_trymalloc_usable(hdrlen + newlen + 1, &bufsize) :
++            s_malloc_usable(hdrlen + newlen + 1, &bufsize);
+         if (newsh == NULL) return NULL;
+         adjustTypeIfNeeded(&type, &hdrlen, bufsize);
+         memcpy((char*)newsh+hdrlen, s, len+1);
+@@ -339,12 +350,22 @@ sds _sdsMakeRoomFor(sds s, size_t addlen, int greedy) {
+ /* Enlarge the free space at the end of the sds string more than needed,
+  * This is useful to avoid repeated re-allocations when repeatedly appending to the sds. */
+ sds sdsMakeRoomFor(sds s, size_t addlen) {
+-    return _sdsMakeRoomFor(s, addlen, 1);
++    return _sdsMakeRoomFor(s, addlen, 1, 0);
+ }
+ 
+ /* Unlike sdsMakeRoomFor(), this one just grows to the necessary size. */
+ sds sdsMakeRoomForNonGreedy(sds s, size_t addlen) {
+-    return _sdsMakeRoomFor(s, addlen, 0);
++    return _sdsMakeRoomFor(s, addlen, 0, 0);
++}
++
++/* Like sdsMakeRoomFor() and sdsMakeRoomForNonGreedy(), but return NULL when
++ * the allocation fails, leaving 's' unchanged, instead of aborting. */
++sds sdsTryMakeRoomFor(sds s, size_t addlen) {
++    return _sdsMakeRoomFor(s, addlen, 1, 1);
++}
++
++sds sdsTryMakeRoomForNonGreedy(sds s, size_t addlen) {
++    return _sdsMakeRoomFor(s, addlen, 0, 1);
+ }
+ 
+ /* Reallocate the sds string so that it has no free space at the end. The
+diff --git a/src/sds.h b/src/sds.h
+index 1537f53..6c25617 100644
+--- a/src/sds.h
++++ b/src/sds.h
+@@ -314,6 +314,8 @@ sds sdstemplate(const char *template, sdstemplate_callback_t cb_func, void *cb_a
+ char sdsReqType(size_t string_size);
+ sds sdsMakeRoomFor(sds s, size_t addlen);
+ sds sdsMakeRoomForNonGreedy(sds s, size_t addlen);
++sds sdsTryMakeRoomFor(sds s, size_t addlen);
++sds sdsTryMakeRoomForNonGreedy(sds s, size_t addlen);
+ void sdsIncrLen(sds s, ssize_t incr);
+ sds sdsRemoveFreeSpace(sds s, int would_regrow);
+ sds sdsResize(sds s, size_t size, int would_regrow);
+diff --git a/src/server.c b/src/server.c
+index 8ddd83d..3d94037 100644
+--- a/src/server.c
++++ b/src/server.c
+@@ -2978,6 +2978,7 @@ void resetServerStats(void) {
+     }
+     atomicSet(server.stat_client_qbuf_limit_disconnections, 0);
+     server.stat_client_outbuf_limit_disconnections = 0;
++    atomicSet(server.stat_client_oom_disconnections, 0);
+     for (j = 0; j < STATS_METRIC_COUNT; j++) {
+         server.inst_metric[j].idx = 0;
+         server.inst_metric[j].last_sample_base = 0;
+@@ -6773,11 +6774,13 @@ sds genRedisInfoString(dict *section_dict, int all_sections, int everything) {
+         long long current_active_defrag_time = server.stat_last_active_defrag_time ?
+             (long long) elapsedUs(server.stat_last_active_defrag_time): 0;
+         long long stat_client_qbuf_limit_disconnections;
++        long long stat_client_oom_disconnections;
+         atomicGet(server.stat_net_input_bytes, stat_net_input_bytes);
+         atomicGet(server.stat_net_output_bytes, stat_net_output_bytes);
+         atomicGet(server.stat_net_repl_input_bytes, stat_net_repl_input_bytes);
+         atomicGet(server.stat_net_repl_output_bytes, stat_net_repl_output_bytes);
+         atomicGet(server.stat_client_qbuf_limit_disconnections, stat_client_qbuf_limit_disconnections);
++        atomicGet(server.stat_client_oom_disconnections, stat_client_oom_disconnections);
+         atomicGet(server.stat_total_client_process_input_buff_events, stat_total_client_process_input_buff_events);
+         atomicGet(server.stat_avg_pipeline_length_sum, stat_avg_pipeline_length_sum);
+         atomicGet(server.stat_avg_pipeline_length_cnt, stat_avg_pipeline_length_cnt);
+@@ -6856,6 +6859,7 @@ sds genRedisInfoString(dict *section_dict, int all_sections, int everything) {
+             "io_threaded_total_prefetch_entries:%lld\r\n", server.stat_total_prefetch_entries,
+             "client_query_buffer_limit_disconnections:%lld\r\n", stat_client_qbuf_limit_disconnections,
+             "client_output_buffer_limit_disconnections:%lld\r\n", server.stat_client_outbuf_limit_disconnections,
++            "client_oom_disconnections:%lld\r\n", stat_client_oom_disconnections,
+             "reply_buffer_shrinks:%lld\r\n", server.stat_reply_buffer_shrinks,
+             "reply_buffer_expands:%lld\r\n", server.stat_reply_buffer_expands,
+             "eventloop_cycles:%llu\r\n", server.duration_stats[EL_DURATION_TYPE_EL].cnt,
+diff --git a/src/server.h b/src/server.h
+index 560f705..f3276a7 100644
+--- a/src/server.h
++++ b/src/server.h
+@@ -198,6 +198,14 @@ struct hdr_histogram;
+ #else
+ #define CONFIG_DEFAULT_REPLY_NODE_MAX_BYTES 0
+ #endif
++
++/* oom-soft-client-buffers default: on for Cygwin/MSYS2 builds, where malloc
++ * fails whenever Windows refuses a commit, off elsewhere. */
++#ifdef __CYGWIN__
++#define CONFIG_DEFAULT_OOM_SOFT_CLIENT_BUFFERS 1
++#else
++#define CONFIG_DEFAULT_OOM_SOFT_CLIENT_BUFFERS 0
++#endif
+ #define PROTO_INLINE_MAX_SIZE   (1024*64) /* Max size of inline reads */
+ #define PROTO_MBULK_BIG_ARG     (1024*32)
+ #define PROTO_RESIZE_THRESHOLD  (1024*32) /* Threshold for determining whether to resize query buffer */
+@@ -499,6 +507,7 @@ extern int configOOMScoreAdjValuesDefaults[CONFIG_OOM_COUNT];
+ #define CLIENT_READ_COMMAND_NOT_FOUND 14
+ #define CLIENT_READ_BAD_ARITY 15
+ #define CLIENT_READ_CROSS_SLOT 16
++#define CLIENT_READ_QUERYBUF_OOM 17 /* oom-soft-client-buffers: query buffer allocation failed */
+ 
+ /* Client block type (btype field in client structure)
+  * if CLIENT_BLOCKED flag is set. */
+@@ -2247,6 +2256,7 @@ struct redisServer {
+     long long stat_dump_payload_sanitizations; /* Number deep dump payloads integrity validations. */
+     redisAtomic long long stat_client_qbuf_limit_disconnections;  /* Total number of clients reached query buf length limit */
+     long long stat_client_outbuf_limit_disconnections;  /* Total number of clients reached output buf length limit */
++    redisAtomic long long stat_client_oom_disconnections; /* Clients closed because a client buffer allocation failed (oom-soft-client-buffers) */
+     long long stat_cluster_incompatible_ops; /* Number of operations that are incompatible with cluster mode */
+     long long stat_total_prefetch_entries;  /* Total number of prefetched dict entries */
+     long long stat_total_prefetch_batches;  /* Total number of prefetched batches */
+@@ -2302,6 +2312,8 @@ struct redisServer {
+     unsigned long active_defrag_max_scan_fields; /* maximum number of fields of set/hash/zset/list to process from within the main dict scan */
+     size_t client_max_querybuf_len; /* Limit for client query buffer length */
+     size_t reply_node_max_bytes;    /* Largest new plain reply list node, 0 = no limit */
++    int oom_soft_client_buffers;    /* Close the client instead of aborting when a client buffer allocation fails */
++    size_t client_alloc_fail_threshold; /* DEBUG SET-ALLOC-FAIL-THRESHOLD: soft client buffer allocations of this size or more fail (0 = off) */
+     int lookahead;                  /* how many commands in each client pipeline to decode and prefetch */
+     int dbnum;                      /* Total number of configured DBs */
+     int supervised;                 /* 1 if supervised, 0 otherwise. */
+diff --git a/tests/unit/win-soft-oom.tcl b/tests/unit/win-soft-oom.tcl
+index 67cbf71..e8cae61 100644
+--- a/tests/unit/win-soft-oom.tcl
++++ b/tests/unit/win-soft-oom.tcl
+@@ -134,3 +134,313 @@ start_server {tags {"win-soft-oom"} overrides {reply-node-max-bytes 262080}} {
+         assert_equal PONG [r ping]
+     }
+ }
++
++# The start of "HSET key field <len-byte value>", up to the value.
++proc win_big_hset_header {key field len} {
++    return "*4\r\n\$4\r\nHSET\r\n\$[string length $key]\r\n$key\r\n\$[string length $field]\r\n$field\r\n\$$len\r\n"
++}
++
++# Sends the start of "HSET key field <len-byte value>" on a raw socket, then
++# keeps sending 1000-byte pieces of the value every 50 ms until a reply line
++# or EOF arrives (5 s at most), and returns the first reply line ("" if the
++# server closed the connection without one). The server only grows the query
++# buffer to the whole value on a read that follows the one holding the
++# header. The first packet carries the header and 2000 bytes, so the header
++# never arrives alone; the pieces after it guarantee that later read however
++# they are coalesced. Raw sockets are plain TCP: callers are tagged tls:skip.
++proc win_raw_big_hset {port key field len} {
++    set fd [socket [srv 0 host] $port]
++    fconfigure $fd -translation binary
++    puts -nonewline $fd [win_big_hset_header $key $field $len]
++    puts -nonewline $fd [string repeat a 2000]
++    flush $fd
++    fconfigure $fd -blocking 0
++    set line ""
++    set sent 2000
++    for {set i 0} {$i < 100} {incr i} {
++        after 50
++        if {[catch {gets $fd line} n]} break
++        if {$n >= 0 || [eof $fd]} break
++        if {$sent + 1000 < $len} {
++            catch {puts -nonewline $fd [string repeat b 1000]; flush $fd}
++            incr sent 1000
++        }
++    }
++    catch {close $fd}
++    return [string trimright $line "\r"]
++}
++
++# A client whose -OOM reply cannot be delivered: it selects the test
++# client's database, pipelines 'count' GETs of 'key' without ever reading the
++# replies, then starts a large HSET and keeps sending pieces of it. Returns
++# the open socket; the caller closes it.
++proc win_raw_stuck_big_hset {port key count} {
++    set fd [socket [srv 0 host] $port]
++    fconfigure $fd -translation binary
++    set db [expr {$::singledb ? 0 : 9}]
++    puts -nonewline $fd "*2\r\n\$6\r\nSELECT\r\n\$[string length $db]\r\n$db\r\n"
++    puts -nonewline $fd [string repeat "*2\r\n\$3\r\nGET\r\n\$[string length $key]\r\n$key\r\n" $count]
++    flush $fd
++    after 200
++    puts -nonewline $fd [win_big_hset_header stuck f 2000000]
++    puts -nonewline $fd [string repeat a 1000]
++    flush $fd
++    fconfigure $fd -blocking 0
++    for {set i 0} {$i < 10} {incr i} {
++        after 50
++        catch {puts -nonewline $fd [string repeat b 1000]; flush $fd}
++    }
++    return $fd
++}
++
++proc win_oom_count {} {
++    return [s client_oom_disconnections]
++}
++
++start_server {tags {"win-soft-oom needs:debug external:skip"} overrides {oom-soft-client-buffers yes}} {
++    set big [win_soft_oom_value 209716] ;# 2,097,160 bytes
++    r hset h data $big small x
++
++    test {Soft OOM: INFO has client_oom_disconnections, and the option is set} {
++        assert_equal 0 [win_oom_count]
++        assert_equal {oom-soft-client-buffers yes} [r config get oom-soft-client-buffers]
++    }
++
++    test {Soft OOM: DEBUG SET-ALLOC-FAIL-THRESHOLD validates its argument} {
++        assert_error {*threshold must be 0*} {r debug set-alloc-fail-threshold -1}
++        assert_error {*not an integer*} {r debug set-alloc-fail-threshold abc}
++        assert_equal OK [r debug set-alloc-fail-threshold 0]
++    }
++
++    test {Soft OOM: a large HMGET reply closes only that client} {
++        r debug set-alloc-fail-threshold 65536
++        set rr [redis_client]
++        catch {$rr hmget h data} e
++        assert_match {*I/O error*} $e
++        catch {$rr close}
++        # Another client, and small replies, are not affected.
++        assert_equal PONG [r ping]
++        assert_equal x [r hget h small]
++        assert_equal 1 [win_oom_count]
++        wait_for_log_messages 0 {"*could not allocate * bytes for its reply (oom-soft-client-buffers)*"} 0 50 100
++        # With the fault injection off the same reply goes through.
++        r debug set-alloc-fail-threshold 0
++        set rr [redis_client]
++        assert_equal [list $big] [$rr hmget h data]
++        $rr close
++        assert_equal 1 [win_oom_count]
++    }
++
++    test {Soft OOM: commands pipelined after the failed reply do not run} {
++        r del after
++        r debug set-alloc-fail-threshold 65536
++        set rd [redis_deferring_client]
++        $rd hget h data
++        $rd set after 1
++        catch {$rd read} e
++        assert_match {*I/O error*} $e
++        catch {$rd close}
++        r debug set-alloc-fail-threshold 0
++        assert_equal 0 [r exists after]
++        assert_equal 2 [win_oom_count]
++    }
++
++    test {Soft OOM: a write inside EXEC runs even when the reply is lost} {
++        r del h2
++        r debug set-alloc-fail-threshold 65536
++        set rr [redis_client]
++        $rr multi
++        $rr hset h2 x 1
++        $rr hget h data
++        catch {$rr exec} e
++        assert_match {*I/O error*} $e
++        catch {$rr close}
++        r debug set-alloc-fail-threshold 0
++        assert_equal 1 [r hget h2 x]
++        assert_equal 3 [win_oom_count]
++    }
++
++    test {Soft OOM: EVAL returning a large value closes the caller, the script client stays fatal} {
++        r debug set-alloc-fail-threshold 65536
++        set rr [redis_client]
++        catch {$rr eval {return redis.call('hget', KEYS[1], 'data')} 1 h} e
++        assert_match {*I/O error*} $e
++        catch {$rr close}
++        # The script ran: its client used the ordinary allocator.
++        assert_equal PONG [r ping]
++        assert_equal 4 [win_oom_count]
++        r debug set-alloc-fail-threshold 0
++        set rr [redis_client]
++        assert_equal $big [$rr eval {return redis.call('hget', KEYS[1], 'data')} 1 h]
++        $rr close
++    }
++
++    tags {tls:skip} {
++    test {Soft OOM: a large HSET query buffer gets -OOM and nothing is written} {
++        r del h3
++        set before [win_oom_count]
++        r debug set-alloc-fail-threshold [expr {1024*1024}]
++        set reply [win_raw_big_hset [srv 0 port] h3 f 2000000]
++        r debug set-alloc-fail-threshold 0
++        assert_match {-OOM could not allocate the query buffer*} $reply
++        assert_equal 0 [r exists h3]
++        assert_equal PONG [r ping]
++        assert_equal [expr {$before + 1}] [win_oom_count]
++    }
++    }
++
++    test {Soft OOM: a large HSET through a regular client is refused and nothing is written} {
++        r del h3
++        set before [win_oom_count]
++        after 1100 ;# one soft OOM log line per second
++        r debug set-alloc-fail-threshold [expr {1024*1024}]
++        # The regular client keeps writing the whole value.
++        set rr [redis_client]
++        catch {$rr hset h3 f $big} e
++        catch {$rr close}
++        assert_equal 0 [r exists h3]
++        assert_equal [expr {$before + 1}] [win_oom_count]
++        wait_for_log_messages 0 {"*could not allocate its query buffer (oom-soft-client-buffers)*pending bulk length: 2097160*"} 0 50 100
++        r debug set-alloc-fail-threshold 0
++        set rr [redis_client]
++        assert_equal 1 [$rr hset h3 f $big]
++        assert_equal $big [$rr hget h3 f]
++        $rr close
++    }
++
++    test {Soft OOM: small requests are unaffected by the threshold} {
++        set before [win_oom_count]
++        r debug set-alloc-fail-threshold 65536
++        set rr [redis_client]
++        for {set j 0} {$j < 100} {incr j} {
++            $rr set k$j [string repeat v 1000]
++        }
++        assert_equal [string repeat v 1000] [$rr get k99]
++        assert_equal x [$rr hget h small]
++        $rr close
++        r debug set-alloc-fail-threshold 0
++        assert_equal $before [win_oom_count]
++    }
++
++    test {Soft OOM: with oom-soft-client-buffers no the threshold has no effect} {
++        set before [win_oom_count]
++        r config set oom-soft-client-buffers no
++        r debug set-alloc-fail-threshold 65536
++        set rr [redis_client]
++        assert_equal [list $big] [$rr hmget h data]
++        r del h4
++        assert_equal 1 [$rr hset h4 f $big]
++        assert_equal $big [$rr hget h4 f]
++        $rr close
++        assert_equal $before [win_oom_count]
++        r debug set-alloc-fail-threshold 0
++        r config set oom-soft-client-buffers yes
++    }
++
++    tags {tls:skip} {
++    test {Soft OOM: a client that cannot receive its -OOM is closed, not polled forever} {
++        set before [win_oom_count]
++        r set big2 [string repeat z 2000000]
++        r debug set-alloc-fail-threshold [expr {1024*1024}]
++        # 20 x 2 MB of unread replies keep the -OOM reply from being written.
++        set fd [win_raw_stuck_big_hset [srv 0 port] big2 20]
++        # The client ran its GETs: its replies are queued, not delivered.
++        wait_for_condition 50 100 {
++            [s client_oom_disconnections] == $before + 1
++        } else {
++            fail "the large HSET did not fail softly"
++        }
++        wait_for_condition 50 100 {
++            [s connected_clients] == 1
++        } else {
++            fail "the client whose -OOM reply could not be written was not closed"
++        }
++        r debug set-alloc-fail-threshold 0
++        set cycles [s eventloop_cycles]
++        after 500
++        # An idle server runs about hz (10) cycles in 500 ms, not millions.
++        assert_lessthan [expr {[s eventloop_cycles] - $cycles}] 1000
++        catch {close $fd}
++        assert_equal 0 [r exists stuck]
++        assert_equal [expr {$before + 1}] [win_oom_count]
++        r del big2
++    }
++    }
++
++    test {Soft OOM: CONFIG RESETSTAT clears client_oom_disconnections} {
++        r config resetstat
++        assert_equal 0 [win_oom_count]
++    }
++}
++
++start_server {tags {"win-soft-oom needs:debug external:skip"} overrides {oom-soft-client-buffers yes io-threads 2}} {
++    set big [win_soft_oom_value 209716]
++    r hset h data $big
++
++    test {Soft OOM with IO threads: large reply} {
++        set before [win_oom_count]
++        r debug set-alloc-fail-threshold 65536
++        set rr [redis_client]
++        catch {$rr hmget h data} e
++        assert_match {*I/O error*} $e
++        catch {$rr close}
++        r debug set-alloc-fail-threshold 0
++        assert_equal PONG [r ping]
++        assert_equal [expr {$before + 1}] [win_oom_count]
++        assert_equal [list $big] [r hmget h data]
++    }
++
++    tags {tls:skip} {
++    test {Soft OOM with IO threads: large query buffer} {
++        set before [win_oom_count]
++        r debug set-alloc-fail-threshold [expr {1024*1024}]
++        assert_match {-OOM could not allocate the query buffer*} [win_raw_big_hset [srv 0 port] h3 f 2000000]
++        r debug set-alloc-fail-threshold 0
++        assert_equal 0 [r exists h3]
++        assert_equal [expr {$before + 1}] [win_oom_count]
++    }
++
++    test {Soft OOM with IO threads: a client that cannot receive its -OOM is closed} {
++        set before [win_oom_count]
++        r set big2 [string repeat z 2000000]
++        r debug set-alloc-fail-threshold [expr {1024*1024}]
++        set fd [win_raw_stuck_big_hset [srv 0 port] big2 20]
++        # The client ran its GETs: its replies are queued, not delivered.
++        wait_for_condition 50 100 {
++            [s client_oom_disconnections] == $before + 1
++        } else {
++            fail "the large HSET did not fail softly"
++        }
++        wait_for_condition 50 100 {
++            [s connected_clients] == 1
++        } else {
++            fail "the client whose -OOM reply could not be written was not closed"
++        }
++        r debug set-alloc-fail-threshold 0
++        catch {close $fd}
++        assert_equal 0 [r exists stuck]
++        assert_equal [expr {$before + 1}] [win_oom_count]
++        r del big2
++    }
++    }
++}
++
++# Only meaningful when the option is not forced with ./runtest --config.
++if {[lsearch -exact $::global_overrides oom-soft-client-buffers] < 0} {
++    start_server {tags {"win-soft-oom external:skip"}} {
++        test {Soft OOM: oom-soft-client-buffers defaults to yes only on Cygwin/MSYS2 builds} {
++            # uname on these runtimes: CYGWIN_NT-..., MSYS_NT-..., MINGW64_NT-...
++            if {[string match {*_NT-*} [s os]]} {
++                assert_equal {oom-soft-client-buffers yes} [r config get oom-soft-client-buffers]
++            } else {
++                assert_equal {oom-soft-client-buffers no} [r config get oom-soft-client-buffers]
++            }
++        }
++    }
++}
++
++start_server {tags {"win-soft-oom external:skip"} overrides {enable-debug-command no}} {
++    test {Soft OOM: DEBUG SET-ALLOC-FAIL-THRESHOLD needs enable-debug-command} {
++        assert_error {*DEBUG command not allowed*} {r debug set-alloc-fail-threshold 1}
++    }
++}

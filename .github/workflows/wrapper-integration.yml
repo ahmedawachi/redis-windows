@@ -1,0 +1,46 @@
+name: Wrapper integration test
+
+# Reusable: installs the -with-Service package as a uniquely named Windows service and
+# runs ci/wrapper-integration.ps1 against it (crash restart, crash-loop exit code, stop).
+
+on:
+  workflow_call:
+    inputs:
+      artifact_name:
+        description: "Artifact holding <dist_name>-with-Service.zip"
+        required: true
+        type: string
+      dist_name:
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  wrapper:
+    name: RedisService on ${{ inputs.dist_name }}
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download packages
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ inputs.artifact_name }}
+          path: packages
+
+      - name: Run ci/wrapper-integration.ps1
+        shell: pwsh
+        env:
+          DIST_NAME: ${{ inputs.dist_name }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if (-not (Test-Path ci/wrapper-integration.ps1)) { throw "ci/wrapper-integration.ps1 is missing" }
+          $zip = "packages/$env:DIST_NAME-with-Service.zip"
+          if (-not (Test-Path $zip)) { throw "$zip not found in the artifact" }
+          Expand-Archive -Path $zip -DestinationPath "$env:RUNNER_TEMP/pkg"
+          $dir = Join-Path $env:RUNNER_TEMP "pkg/$env:DIST_NAME-with-Service"
+          & ./ci/wrapper-integration.ps1 -PackageDir $dir
+          if ($LASTEXITCODE -ne 0) { throw "ci/wrapper-integration.ps1 failed with exit code $LASTEXITCODE" }

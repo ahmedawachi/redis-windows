@@ -1,0 +1,368 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: ahmedawachi <121810925+ahmedawachi@users.noreply.github.com>
+Date: Mon, 28 Sep 2026 10:08:48 +0300
+Subject: [PATCH 6/7] networking: split large plain replies over nodes of at
+ most 256 KB
+
+What: _addReplyPayloadToList() can split a plain (copied) payload over
+several reply list nodes. Each new node is still at least
+PROTO_REPLY_CHUNK_BYTES (16 KB) and at most reply-node-max-bytes of
+buffer. With the Cygwin/MSYS2 default of 256 KB - 64, a 1.87 MB hash
+field becomes eight nodes of about 256 KB instead of one 1.87 MB
+allocation. Copy-avoidance nodes (BULK_STR_REF) are unchanged: their
+payload is a small reference.
+
+reply-node-max-bytes is a hidden config: 0 (no split) or at least
+16 KB; values in between are refused. It defaults to 256 KB - 64 on
+Cygwin/MSYS2 builds and to 0 everywhere else, so Linux and macOS builds
+keep upstream's allocation pattern. Fake clients (Lua,
+modules, AOF loading) are never split: their reply is concatenated
+afterwards anyway.
+
+Behaviour is otherwise unchanged:
+- Accounting: every node still adds its size to reply_bytes, and
+  closeClientOnOutputBufferLimitReached() still runs once, after the
+  whole payload has been queued, so client-output-buffer-limit sees the
+  same total as before.
+- Writing: the nodes after the first carry a new buf_continued flag
+  (it fits in the padding of clientReplyBlock, whose size stays 24
+  bytes on LP64). _writevToClient() adds such continuation nodes to the
+  same writev() even past NET_MAX_WRITES_PER_EVENT, so a split reply is
+  offered to the socket exactly as the single large node was. Without
+  this, each event would write only the first 256 KB: a 1.9 MB HGET
+  would take 8 writes and 8 event-loop cycles instead of 1, and on
+  Cygwin every extra cycle is a select() round trip.
+- The bytes on the wire are identical.
+
+Why: a production crash of the MSYS2 build was exactly this allocation:
+zmalloc_usable(1868918 + 24) for an HMGET of a 1.87 MB hash field, which
+Windows refused to commit while the dataset was only 64 MB. Hash values
+do not use the zero-copy reply path, so the whole value was copied into
+one contiguous block. The 256 KB bound keeps each node below the 256 KB
+mmap threshold of the Cygwin/MSYS2 malloc (dlmalloc 2.8.6), including
+the 24-byte node header, the 8-byte zmalloc prefix and dlmalloc's chunk
+overhead, so reply nodes come from the heap and reuse freed chunks
+instead of asking Windows for a fresh commit each time.
+
+This does not remove every large allocation. The stored value and the
+query buffer of each big HSET still need about 1.9 MB contiguous (the
+next patch makes the query buffer failure non-fatal).
+
+Tests: tests/unit/win-soft-oom.tcl. The default is on only for
+Cygwin/MSYS2; values below 16 KB are refused; with the cap off a 2 MB
+reply stays in one node; with it on, 2 MB HMGET, HGET and GETRANGE
+replies (and GET, which uses copy avoidance and is never split) arrive
+byte for byte, CLIENT INFO
+inside MULTI shows oll >= 8 and omem within oll * 256 KB, pipelined
+large replies keep their order, and a 1 MB client-output-buffer-limit
+still disconnects the client.
+
+Risk: low. More list nodes for replies above 256 KB on Cygwin/MSYS2
+builds only.
+---
+ src/config.c                |   9 +++
+ src/networking.c            |  61 +++++++++++-----
+ src/server.h                |  11 +++
+ tests/unit/win-soft-oom.tcl | 136 ++++++++++++++++++++++++++++++++++++
+ 4 files changed, 199 insertions(+), 18 deletions(-)
+ create mode 100644 tests/unit/win-soft-oom.tcl
+
+diff --git a/src/config.c b/src/config.c
+index 488cc0f..6d6fc92 100644
+--- a/src/config.c
++++ b/src/config.c
+@@ -2635,6 +2635,14 @@ static int isValidProcTitleTemplate(char *val, const char **err) {
+ }
+ 
+ /* Validate that array-slice-size is a power of two */
++static int isValidReplyNodeMaxBytes(long long val, const char **err) {
++    if (val != 0 && val < PROTO_REPLY_CHUNK_BYTES) {
++        *err = "must be 0 (replies are not split) or at least 16kb";
++        return 0;
++    }
++    return 1;
++}
++
+ static int isValidArraySliceSize(long long val, const char **err) {
+     if (val <= 0 || (val & (val - 1)) != 0) {
+         *err = "array-slice-size must be a power of two";
+@@ -3608,6 +3616,7 @@ standardConfig static_configs[] = {
+     createSizeTConfig("hll-sparse-max-bytes", NULL, MODIFIABLE_CONFIG, 0, LONG_MAX, server.hll_sparse_max_bytes, 3000, MEMORY_CONFIG, NULL, NULL),
+     createSizeTConfig("tracking-table-max-keys", NULL, MODIFIABLE_CONFIG, 0, LONG_MAX, server.tracking_table_max_keys, 1000000, INTEGER_CONFIG, NULL, NULL), /* Default: 1 million keys max. */
+     createSizeTConfig("client-query-buffer-limit", NULL, DEBUG_CONFIG | MODIFIABLE_CONFIG, 1024*1024, LONG_MAX, server.client_max_querybuf_len, 1024*1024*1024, MEMORY_CONFIG, NULL, NULL), /* Default: 1GB max query buffer. */
++    createSizeTConfig("reply-node-max-bytes", NULL, MODIFIABLE_CONFIG | HIDDEN_CONFIG, 0, LONG_MAX, server.reply_node_max_bytes, CONFIG_DEFAULT_REPLY_NODE_MAX_BYTES, MEMORY_CONFIG, isValidReplyNodeMaxBytes, NULL), /* 0 = replies are not split. */
+     createSSizeTConfig("maxmemory-clients", NULL, MODIFIABLE_CONFIG, -100, SSIZE_MAX, server.maxmemory_clients, 0, MEMORY_CONFIG | PERCENT_CONFIG, NULL, applyClientMaxMemoryUsage),
+ 
+     /* Other configs */
+diff --git a/src/networking.c b/src/networking.c
+index b9f4274..b92168d 100644
+--- a/src/networking.c
++++ b/src/networking.c
+@@ -429,24 +429,38 @@ static void _addReplyPayloadToList(client *c, list *reply_list, const char *payl
+     }
+ 
+     if (len) {
+-        /* Create a new node, make sure it is allocated to at
+-         * least PROTO_REPLY_CHUNK_BYTES */
+-        size_t usable_size;
+-        size_t required_size = encoded ? len + sizeof(payloadHeader) : len;
+-        size_t size = required_size < PROTO_REPLY_CHUNK_BYTES ? PROTO_REPLY_CHUNK_BYTES : required_size;
+-        tail = zmalloc_usable(size + sizeof(clientReplyBlock), &usable_size);
+-        /* take over the allocation's internal fragmentation */
+-        tail->size = usable_size - sizeof(clientReplyBlock);
+-        tail->used = 0;
+-        tail->buf_encoded = encoded;
+-        if (tail->buf_encoded) {
+-            serverAssert(tryAddPayload(c, tail->buf, &tail->used, tail->size, payload_type, (void *)payload, len));
+-        } else {
+-            tail->used = len;
+-            memcpy(tail->buf, payload, len);
++        /* Create new nodes, each allocated to at least PROTO_REPLY_CHUNK_BYTES.
++         * With reply-node-max-bytes set, a plain payload is split over nodes
++         * of at most that size, so a large reply never needs one large
++         * contiguous allocation. Fake clients (Lua, modules, AOF loading)
++         * concatenate their reply anyway, so they are never split. */
++        size_t node_max = c->conn ? server.reply_node_max_bytes : 0;
++        int continued = 0;
++        while (len) {
++            size_t usable_size;
++            size_t required_size = encoded ? len + sizeof(payloadHeader) : len;
++            size_t size = required_size < PROTO_REPLY_CHUNK_BYTES ? PROTO_REPLY_CHUNK_BYTES : required_size;
++            if (!encoded && node_max && size > node_max) size = node_max;
++            tail = zmalloc_usable(size + sizeof(clientReplyBlock), &usable_size);
++            /* take over the allocation's internal fragmentation */
++            tail->size = usable_size - sizeof(clientReplyBlock);
++            tail->used = 0;
++            tail->buf_encoded = encoded;
++            tail->buf_continued = continued;
++            if (tail->buf_encoded) {
++                serverAssert(tryAddPayload(c, tail->buf, &tail->used, tail->size, payload_type, (void *)payload, len));
++                len = 0;
++            } else {
++                continued = 1;
++                size_t copy = len < tail->size ? len : tail->size;
++                tail->used = copy;
++                memcpy(tail->buf, payload, copy);
++                payload += copy;
++                len -= copy;
++            }
++            listAddNodeTail(reply_list, tail);
++            c->reply_bytes += tail->size;
+         }
+-        listAddNodeTail(reply_list, tail);
+-        c->reply_bytes += tail->size;
+ 
+         closeClientOnOutputBufferLimitReached(c, 1);
+     }
+@@ -1006,6 +1020,7 @@ void setDeferredReply(client *c, void *node, const char *s, size_t length) {
+         buf->size = usable_size - sizeof(clientReplyBlock);
+         buf->used = length;
+         buf->buf_encoded = 0;
++        buf->buf_continued = 0;
+         memcpy(buf->buf, s, length);
+         c->net_output_bytes_curr_cmd += length;
+         listNodeValue(ln) = buf;
+@@ -2491,6 +2506,13 @@ static int replyIOVReachLimit(ReplyIOV *reply_iov) {
+     return reply_iov->iovcnt >= reply_iov->iovmax || reply_iov->iov_bytes_len >= NET_MAX_WRITES_PER_EVENT;
+ }
+ 
++/* A node that continues the previous node's payload (a payload split by
++ * reply-node-max-bytes) is added even past NET_MAX_WRITES_PER_EVENT, so
++ * the split reply is offered to writev() exactly as one large node was. */
++static int replyIOVCanContinue(ReplyIOV *reply_iov, clientReplyBlock *o) {
++    return o->buf_continued && reply_iov->iovcnt < reply_iov->iovmax;
++}
++
+ /* Helper function to process encoded buffer and build iov array. */
+ static void processEncodedBufferForWrite(ReplyIOV *reply_iov, char *start_ptr, char *end_ptr, size_t offset) {
+     char *ptr = start_ptr;
+@@ -2625,7 +2647,10 @@ static int _writevToClient(client *c, ssize_t *nwritten) {
+         listIter iter;
+         listNode *next;
+         listRewind(c->reply, &iter);
+-        while ((next = listNext(&iter)) && !replyIOVReachLimit(&reply_iov)) {
++        while ((next = listNext(&iter)) &&
++               (!replyIOVReachLimit(&reply_iov) ||
++                replyIOVCanContinue(&reply_iov, listNodeValue(next))))
++        {
+             clientReplyBlock *o = listNodeValue(next);
+             if (o->used == 0) { /* empty node, just release it and skip. */
+                 c->reply_bytes -= o->size;
+diff --git a/src/server.h b/src/server.h
+index b4285df..560f705 100644
+--- a/src/server.h
++++ b/src/server.h
+@@ -189,6 +189,15 @@ struct hdr_histogram;
+ /* Protocol and I/O related defines */
+ #define PROTO_IOBUF_LEN         (1024*16)  /* Generic I/O buffer size */
+ #define PROTO_REPLY_CHUNK_BYTES (16*1024) /* 16k output buffer */
++/* Default of reply-node-max-bytes, the largest buffer of one new plain reply
++ * list node (0 = no limit). On Cygwin/MSYS2 the request, with the node header
++ * and the allocator's own overhead, stays below 256 KB, the mmap threshold of
++ * that platform's malloc (dlmalloc). Elsewhere replies are not split. */
++#ifdef __CYGWIN__
++#define CONFIG_DEFAULT_REPLY_NODE_MAX_BYTES (256*1024-64)
++#else
++#define CONFIG_DEFAULT_REPLY_NODE_MAX_BYTES 0
++#endif
+ #define PROTO_INLINE_MAX_SIZE   (1024*64) /* Max size of inline reads */
+ #define PROTO_MBULK_BIG_ARG     (1024*32)
+ #define PROTO_RESIZE_THRESHOLD  (1024*32) /* Threshold for determining whether to resize query buffer */
+@@ -1169,6 +1178,7 @@ typedef struct __attribute__((__packed__)) bulkStrRef {
+ typedef struct clientReplyBlock {
+     size_t size, used;
+     char buf_encoded;
++    char buf_continued; /* Holds the rest of the previous node's payload (reply-node-max-bytes) */
+     char buf[];
+ } clientReplyBlock;
+ 
+@@ -2291,6 +2301,7 @@ struct redisServer {
+     int active_defrag_cycle_max;       /* maximal effort for defrag in CPU percentage */
+     unsigned long active_defrag_max_scan_fields; /* maximum number of fields of set/hash/zset/list to process from within the main dict scan */
+     size_t client_max_querybuf_len; /* Limit for client query buffer length */
++    size_t reply_node_max_bytes;    /* Largest new plain reply list node, 0 = no limit */
+     int lookahead;                  /* how many commands in each client pipeline to decode and prefetch */
+     int dbnum;                      /* Total number of configured DBs */
+     int supervised;                 /* 1 if supervised, 0 otherwise. */
+diff --git a/tests/unit/win-soft-oom.tcl b/tests/unit/win-soft-oom.tcl
+new file mode 100644
+index 0000000..67cbf71
+--- /dev/null
++++ b/tests/unit/win-soft-oom.tcl
+@@ -0,0 +1,136 @@
++# Tests for the fork's reply-node cap and soft OOM handling of client buffers
++# (patches/redis/0006-reply-node-cap and 0007-soft-oom-client-buffers).
++
++# A value of 'count' * 10 bytes in which every 10-byte block is distinct, so
++# a reordered, repeated or missing chunk cannot go unnoticed.
++proc win_soft_oom_value {count} {
++    set v {}
++    for {set i 0} {$i < $count} {incr i} {
++        append v [format %010d $i]
++    }
++    return $v
++}
++
++# reply-node-max-bytes on Cygwin/MSYS2 builds (0, no split, elsewhere). The
++# cap tests below set it explicitly, so they run on every platform.
++set ::win_reply_node_max [expr {256*1024-64}]
++
++proc win_client_field {info field} {
++    if {![regexp "(^| )$field=(\[0-9\]+)" $info -> _ value]} {
++        error "no $field= in: $info"
++    }
++    return $value
++}
++
++# Only meaningful when the option is not forced with ./runtest --config.
++if {[lsearch -exact $::global_overrides reply-node-max-bytes] < 0} {
++    start_server {tags {"win-soft-oom external:skip"}} {
++        test {Reply node cap: on by default only on Cygwin/MSYS2 builds} {
++            # uname on these runtimes: CYGWIN_NT-..., MSYS_NT-..., MINGW64_NT-...
++            set expected [expr {[string match {*_NT-*} [s os]] ? $::win_reply_node_max : 0}]
++            assert_equal $expected [lindex [r config get reply-node-max-bytes] 1]
++        }
++    }
++}
++
++start_server {tags {"win-soft-oom"}} {
++    test {Reply node cap: values between 1 and 16 KB are refused, not silently raised} {
++        catch {r config set reply-node-max-bytes 1000} e
++        assert_match {*at least 16kb*} $e
++        r config set reply-node-max-bytes 0
++        r config set reply-node-max-bytes 16384
++        assert_equal 16384 [lindex [r config get reply-node-max-bytes] 1]
++    }
++
++    test {Reply node cap: with the cap off a large reply is not split, as upstream} {
++        r config set reply-node-max-bytes 0
++        set big [win_soft_oom_value 209716]
++        r hset h0 data $big
++        r multi
++        r hget h0 data
++        r client info
++        set res [r exec]
++        assert_equal $big [lindex $res 0]
++        # One node for the payload, plus at most one for the trailing CRLF.
++        assert_lessthan_equal [win_client_field [lindex $res 1] oll] 2
++        r del h0
++    }
++
++    test {Reply node cap: a 2 MB value returned by a script arrives intact} {
++        r config set reply-node-max-bytes $::win_reply_node_max
++        set big [win_soft_oom_value 209716]
++        r set sbig $big
++        assert_equal $big [r eval {return redis.call('get', KEYS[1])} 1 sbig]
++        r del sbig
++    }
++}
++
++start_server {tags {"win-soft-oom"} overrides {reply-node-max-bytes 262080}} {
++    set big [win_soft_oom_value 209716] ;# 2,097,160 bytes
++
++    test {Reply node cap: a 2 MB HMGET reply arrives intact} {
++        r del h
++        r hset h data $big small x
++        assert_equal [list $big x] [r hmget h data small]
++        assert_equal $big [r hget h data]
++    }
++
++    test {Reply node cap: 2 MB GET (copy avoidance, never split) and GETRANGE (split) replies arrive intact} {
++        r set s $big
++        assert_equal $big [r get s]
++        assert_equal $big [r getrange s 0 -1]
++    }
++
++    test {Reply node cap: no reply list node is larger than 256 KB} {
++        # Inside MULTI, CLIENT INFO runs after HMGET has queued its reply
++        # and before any of it is written, so oll and omem describe the
++        # whole 2 MB reply.
++        r multi
++        r hmget h data
++        r client info
++        set res [r exec]
++        assert_equal $big [lindex $res 0 0]
++        set info [lindex $res 1]
++        set oll [win_client_field $info oll]
++        set omem [win_client_field $info omem]
++        # One node would hold the whole payload; capped nodes need at least 8.
++        assert_morethan_equal $oll [expr {[string length $big] / $::win_reply_node_max}]
++        # Every node is at most reply-node-max-bytes plus its header and the
++        # allocator's rounding (up to a page for mmapped chunks).
++        assert_lessthan_equal $omem [expr {$oll * ($::win_reply_node_max + 4096)}]
++        assert_morethan_equal $omem [string length $big]
++    }
++
++    test {Reply node cap: pipelined large replies arrive in order} {
++        r del h2
++        r hset h2 a $big b [string reverse $big]
++        set rd [redis_deferring_client]
++        for {set j 0} {$j < 3} {incr j} {
++            $rd hget h2 a
++            $rd hget h2 b
++            $rd ping
++        }
++        for {set j 0} {$j < 3} {incr j} {
++            assert_equal $big [$rd read]
++            assert_equal [string reverse $big] [$rd read]
++            assert_equal PONG [$rd read]
++        }
++        $rd close
++    }
++
++    test {Reply node cap: client-output-buffer-limit still counts the whole reply} {
++        r config set client-output-buffer-limit "normal 1mb 0 0"
++        set before [s client_output_buffer_limit_disconnections]
++        set rd [redis_deferring_client]
++        $rd hget h data
++        catch {$rd read} e
++        $rd close
++        wait_for_condition 50 100 {
++            [s client_output_buffer_limit_disconnections] == $before + 1
++        } else {
++            fail "client with a 2 MB reply was not disconnected by a 1 MB hard limit"
++        }
++        r config set client-output-buffer-limit "normal 0 0 0"
++        assert_equal PONG [r ping]
++    }
++}

@@ -1,0 +1,50 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: ahmedawachi <121810925+ahmedawachi@users.noreply.github.com>
+Date: Mon, 28 Sep 2026 09:35:30 +0300
+Subject: [PATCH 5/7] deps: build xxhash with an optimization level
+
+What: deps/Makefile now passes an explicit level to xxhash: the
+OPTIMIZATION given on the make command line (for example -O2, or -O0 for a
+fallback build), else -O2. A level in CFLAGS still wins because it comes
+last. Resulting xxhash CFLAGS:
+  make                                      -> -fPIC -O2
+  make OPTIMIZATION=-O2 CFLAGS=-Wno-char-subscripts
+                                            -> -fPIC -O2 -Wno-char-subscripts
+  make OPTIMIZATION=-O0                     -> -fPIC -O0
+  make CFLAGS=-O0                           -> -fPIC -O2 -O0 (-O0 wins)
+
+Why: xxhash's own Makefile sets
+"CFLAGS ?= -O3", but deps/Makefile always passes CFLAGS on the command
+line, which overrides it. So libxxhash.a builds at the compiler default
+-O0 in every upstream build, including an
+OPTIMIZATION=-O2 build (its build log shows
+"cc -fPIC -Wno-char-subscripts ... -c xxhash.c"). OPTIMIZATION alone
+does not reach xxhash, unlike hiredis (its own OPTIMIZATION variable),
+lua (-O2 in deps/Makefile), and linenoise/hdr_histogram/fpconv/tre (-Os
+in their own Makefiles). Still needed after the switch to -O2.
+
+Risk: very low. The impact is also low: XXH3 is used by the string
+digest paths (t_string.c) and streams. Build-flag-only change on every
+platform.
+---
+ deps/Makefile | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
+
+diff --git a/deps/Makefile b/deps/Makefile
+index 7ca6de4..e098d4a 100644
+--- a/deps/Makefile
++++ b/deps/Makefile
+@@ -102,7 +102,12 @@ tre: .make-prerequisites
+ .PHONY: tre
+ 
+ 
+-XXHASH_CFLAGS = -fPIC $(DEPS_CFLAGS)
++# xxhash's Makefile sets -O3 with "CFLAGS ?=", which the CFLAGS passed below
++# overrides, so without a level here it builds at the compiler default -O0.
++# Follow an OPTIMIZATION given on the make command line, else use -O2. A level
++# in CFLAGS still wins because DEPS_CFLAGS comes last.
++XXHASH_OPT := $(if $(OPTIMIZATION),$(OPTIMIZATION),-O2)
++XXHASH_CFLAGS = -fPIC $(XXHASH_OPT) $(DEPS_CFLAGS)
+ xxhash: .make-prerequisites
+ 	@printf '%b %b\n' $(MAKECOLOR)MAKE$(ENDCOLOR) $(BINCOLOR)$@$(ENDCOLOR)
+ 	cd xxhash && $(MAKE) lib CFLAGS="$(XXHASH_CFLAGS)" LDFLAGS="$(DEPS_LDFLAGS)"

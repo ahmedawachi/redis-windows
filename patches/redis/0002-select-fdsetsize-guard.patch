@@ -1,0 +1,128 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: ahmedawachi <121810925+ahmedawachi@users.noreply.github.com>
+Date: Mon, 28 Sep 2026 09:30:51 +0300
+Subject: [PATCH 2/7] ae_select: keep every registered fd below FD_SETSIZE
+
+What: on builds that use the select() event loop (no epoll, kqueue or
+evport; on the platforms we ship that means Cygwin and MSYS2):
+- config.h defines USE_AE_SELECT for exactly the case in which ae.c
+  includes ae_select.c.
+- adjustOpenFilesLimit() first clamps maxclients to
+  FD_SETSIZE - CONFIG_FDSET_INCR - 1 (895 with FD_SETSIZE 1024) and logs a
+  WARNING naming the old and new value. The event loop is created with
+  maxclients + CONFIG_FDSET_INCR, so aeCreateFileEvent() now rejects any
+  fd that the fd_set cannot hold. This is the rule aeResizeSetSize()
+  already applies to CONFIG SET maxclients; startup never checked it.
+  Because updateMaxclients() also calls adjustOpenFilesLimit(), CONFIG SET
+  maxclients above the limit is refused with "... try with 895".
+- aeApiAddEvent() refuses fd >= FD_SETSIZE with ERANGE. This protects
+  redis-benchmark and redis-cli, which size their loops at 10240.
+- The build fails with #error if FD_SETSIZE <= CONFIG_FDSET_INCR + 1
+  (newlib's FD_SETSIZE is 64 when __CYGWIN__ is not predefined), so that
+  assumption can no longer fail silently.
+
+Why: MSYS2/Cygwin cap open files at 3200, so Redis starts with maxclients 3168
+and an event loop of 3296 while fd_set holds 1024 bits. The first fd of
+1024 or more makes FD_SET write past rfds, and Cygwin's select() zeroes
+and rewrites sizeof_fd_set(maxfd+1) bytes starting at _wfds, the last
+member of the 512-byte aeApiState. That overruns the heap on every
+wakeup, or panics in aeApiPoll on EBADF. Production is not exposed
+today (client fds 8 and 9), but any connection burst of about 1000
+reaches it.
+
+Not done: raising FD_SETSIZE (-DFD_SETSIZE=2048). It is sound only if
+every translation unit that uses fd_set sees the same value, and it buys
+nothing for a two-connection cache. The clamp is written in terms of
+FD_SETSIZE, so a build that passes -DFD_SETSIZE=2048 in CFLAGS (used by
+both src and deps) raises the cap automatically. The runtime's NUM_SOCKS
+2048 sockets-per-session limit still applies.
+
+Risk: very low. No-op on epoll, kqueue and evport builds (ae_select.c is
+not compiled there and the clamp is under USE_AE_SELECT). On select
+builds, clients above 895 get "-ERR max number of clients reached"
+instead of undefined behaviour.
+---
+ src/ae_select.c |  7 +++++++
+ src/config.h    |  6 ++++++
+ src/server.c    | 26 ++++++++++++++++++++++++++
+ 3 files changed, 39 insertions(+)
+
+diff --git a/src/ae_select.c b/src/ae_select.c
+index c73b875..bcc7b7a 100644
+--- a/src/ae_select.c
++++ b/src/ae_select.c
+@@ -43,6 +43,13 @@ static void aeApiFree(aeEventLoop *eventLoop) {
+ static int aeApiAddEvent(aeEventLoop *eventLoop, int fd, int mask) {
+     aeApiState *state = eventLoop->apidata;
+ 
++    /* FD_SET() does no bounds checking, so an fd the fd_set cannot hold
++     * would be written past it. aeCreateFileEvent() then fails without
++     * recording the fd, so it never reaches aeApiDelEvent() or select(). */
++    if (fd >= FD_SETSIZE) {
++        errno = ERANGE;
++        return -1;
++    }
+     if (mask & AE_READABLE) FD_SET(fd,&state->rfds);
+     if (mask & AE_WRITABLE) FD_SET(fd,&state->wfds);
+     return 0;
+diff --git a/src/config.h b/src/config.h
+index beb6bc8..373cf54 100644
+--- a/src/config.h
++++ b/src/config.h
+@@ -117,6 +117,12 @@
+ #endif
+ #endif
+ 
++/* No epoll, kqueue or evport: ae.c falls back to select() (e.g. Cygwin/MSYS2),
++ * whose fd_set holds only FD_SETSIZE descriptors. */
++#if !defined(HAVE_EVPORT) && !defined(HAVE_EPOLL) && !defined(HAVE_KQUEUE)
++#define USE_AE_SELECT 1
++#endif
++
+ /* Test for __builtin_prefetch()
+  * Supported in LLVM since 2.9: https://releases.llvm.org/2.9/docs/ReleaseNotes.html
+  * Supported in GCC since 3.1 but we use 4.8 given it's too old: https://gcc.gnu.org/gcc-3.1/changes.html. */
+diff --git a/src/server.c b/src/server.c
+index e8cd65f..69a0868 100644
+--- a/src/server.c
++++ b/src/server.c
+@@ -2685,6 +2685,29 @@ int setOOMScoreAdj(int process_class) {
+ #endif
+ }
+ 
++#ifdef USE_AE_SELECT
++#include <sys/select.h>
++#if FD_SETSIZE <= CONFIG_FDSET_INCR + 1
++#error "FD_SETSIZE is too small for the select() event loop"
++#endif
++
++/* The select() event loop cannot watch an fd >= FD_SETSIZE. Keep the event
++ * loop size (maxclients + CONFIG_FDSET_INCR) below FD_SETSIZE, the same rule
++ * aeResizeSetSize() applies to CONFIG SET maxclients, so every fd that
++ * aeCreateFileEvent() accepts also fits in the fd_set. */
++static void clampMaxclientsForSelect(void) {
++    const unsigned int limit = FD_SETSIZE - CONFIG_FDSET_INCR - 1;
++
++    if (server.maxclients > limit) {
++        serverLog(LL_WARNING,"This build uses the select() event loop, which "
++            "cannot watch file descriptors of %d or higher (FD_SETSIZE). "
++            "maxclients has been reduced from %u to %u.",
++            FD_SETSIZE, server.maxclients, limit);
++        server.maxclients = limit;
++    }
++}
++#endif
++
+ /* This function will try to raise the max number of open files accordingly to
+  * the configured max number of clients. It also reserves a number of file
+  * descriptors (CONFIG_MIN_RESERVED_FDS) for extra operations of
+@@ -2694,6 +2717,9 @@ int setOOMScoreAdj(int process_class) {
+  * max number of clients, the function will do the reverse setting
+  * server.maxclients to the value that we can actually handle. */
+ void adjustOpenFilesLimit(void) {
++#ifdef USE_AE_SELECT
++    clampMaxclientsForSelect();
++#endif
+     rlim_t maxfiles = server.maxclients+CONFIG_MIN_RESERVED_FDS;
+     struct rlimit limit;
+ 

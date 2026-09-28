@@ -1,11 +1,31 @@
 name: Build Redis
 
+# Reusable release pipeline: patch check, wrapper tests (Windows unit, Linux real-server)
+# and publish, MSYS2 and Cygwin builds with smoke tests, the wrapper integration test on
+# both packages, then a GitHub release tagged
+# <redis_version>-<FORK_LABEL>.<fork_revision>.
+
 on:
   workflow_call:
     inputs:
-      release_version:
+      redis_version:
+        description: "Upstream Redis tag, e.g. 8.10.2"
         required: true
         type: string
+      fork_revision:
+        description: "Revision of this fork's build for that Redis version"
+        required: false
+        type: number
+        default: 1
+      optimization:
+        description: "make OPTIMIZATION= value (-O2 default; -O0 is the fallback)"
+        required: false
+        type: string
+        default: "-O2"
+      build_tls:
+        required: false
+        type: boolean
+        default: true
       make_latest:
         required: false
         type: boolean
@@ -13,289 +33,201 @@ on:
       prerelease:
         required: false
         type: boolean
-        default: false
+        default: true
     outputs:
-      release_version:
-        description: "The version of Redis being built"
-        value: ${{ jobs.prepare.outputs.release_version }}
+      release_tag:
+        description: "The tag of the release"
+        value: ${{ jobs.prepare.outputs.release_tag }}
+
+permissions:
+  contents: read
+
+env:
+  # Names this build everywhere: tag, package names, release title and start-up banner.
+  FORK_LABEL: fork
 
 jobs:
+  patches:
+    uses: ./.github/workflows/patch-check.yml
+    with:
+      redis_version: ${{ inputs.redis_version }}
+
   prepare:
     runs-on: windows-latest
+    timeout-minutes: 30
     outputs:
-      release_version: ${{ env.RELEASE_VERSION }}
-      redis_dist: ${{ env.REDIS_DIST }}
-
+      release_tag: ${{ steps.names.outputs.release_tag }}
+      dist_base: ${{ steps.names.outputs.dist_base }}
+      fork_label: ${{ steps.names.outputs.fork_label }}
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup environment
-        id: setup
+      - name: Validate inputs and name the release
+        id: names
+        shell: pwsh
+        env:
+          REDIS_VERSION: ${{ inputs.redis_version }}
+          FORK_REVISION: ${{ inputs.fork_revision }}
+          OPTIMIZATION: ${{ inputs.optimization }}
         run: |
-          $version = "${{ inputs.release_version }}"
-          Add-Content -Path $env:GITHUB_ENV -Value "RELEASE_VERSION=$version"
-          Add-Content -Path $env:GITHUB_ENV -Value "REDIS_DIST=Redis-$version-Windows-x64"
+          $ErrorActionPreference = 'Stop'
+          if ($env:REDIS_VERSION -notmatch '^[0-9]+\.[0-9]+(\.[0-9]+)?(-[A-Za-z0-9.]+)?$') { throw "Invalid redis_version '$env:REDIS_VERSION'" }
+          if ($env:FORK_REVISION -notmatch '^[1-9][0-9]*$') { throw "fork_revision must be a positive integer, got '$env:FORK_REVISION'" }
+          if ($env:OPTIMIZATION -notmatch '^-O[0-3sg]$') { throw "optimization must be one of -O0 -O1 -O2 -O3 -Os -Og, got '$env:OPTIMIZATION'" }
+          if ($env:FORK_LABEL -notmatch '^[A-Za-z0-9._-]+$') { throw "FORK_LABEL may only contain A-Z a-z 0-9 . _ -" }
+          $tag = "$env:REDIS_VERSION-$env:FORK_LABEL.$env:FORK_REVISION"
+          "release_tag=$tag" | Out-File -Append $env:GITHUB_OUTPUT
+          "dist_base=Redis-$tag-Windows-x64" | Out-File -Append $env:GITHUB_OUTPUT
+          "fork_label=$env:FORK_LABEL" | Out-File -Append $env:GITHUB_OUTPUT
+          Write-Output "Release tag: $tag"
 
-          Invoke-WebRequest -Uri "https://github.com/redis/redis/archive/refs/tags/$version.tar.gz" -OutFile "redis-$version.tar.gz"
+      - name: Download the upstream source and release notes
+        shell: pwsh
+        env:
+          REDIS_VERSION: ${{ inputs.redis_version }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $v = $env:REDIS_VERSION
+          Invoke-WebRequest -Uri "https://github.com/redis/redis/archive/refs/tags/$v.tar.gz" -OutFile "redis-$v.tar.gz"
+          try {
+            $release = Invoke-RestMethod -Headers @{ Authorization = "Bearer $env:GH_TOKEN" } -Uri "https://api.github.com/repos/redis/redis/releases/tags/$v"
+            $body = $release.body -replace '(?<![\w/])#(\d+)', 'https://github.com/redis/redis/pull/$1'
+          } catch {
+            $body = $null
+          }
+          if ([string]::IsNullOrWhiteSpace($body)) {
+            $body = "Upstream release notes: https://github.com/redis/redis/releases/tag/$v"
+          }
+          $body | Set-Content -Encoding utf8 redis_release_notes.md
 
-          $releaseInfo = ConvertFrom-Json(Invoke-WebRequest -Headers @{'Authorization' = 'Bearer ${{ secrets.GITHUB_TOKEN }}'} -Uri "https://api.github.com/repos/redis/redis/releases/tags/$version").Content
-          $releaseInfo.body -Replace '\#1', 'https://github.com/redis/redis/pull/1' | Set-Content .\redis_latest_body.txt
-
-      - name: Setup .NET 10.0
+      - name: Set up .NET 10
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.0.x'
 
+      - name: Wrapper unit tests
+        shell: pwsh
+        run: dotnet run --project tests/RedisService.Tests -c Release
+
       - name: Publish RedisService.exe
-        run: |
-          dotnet publish -c Release -r win-x64 --sc -o publish
+        shell: pwsh
+        run: dotnet publish RedisService.csproj -c Release -r win-x64 --self-contained -o publish
 
       - name: Upload source and RedisService.exe
         uses: actions/upload-artifact@v4
         with:
           name: redis-source
+          if-no-files-found: error
           path: |
-            redis-${{ env.RELEASE_VERSION }}.tar.gz
-            redis_latest_body.txt
+            redis-${{ inputs.redis_version }}.tar.gz
+            redis_release_notes.md
             publish
 
-  build-msys2:
-    needs: prepare
-    runs-on: windows-latest
+  build:
+    needs: [patches, prepare]
+    strategy:
+      fail-fast: false
+      matrix:
+        toolchain: [msys2, cygwin]
+    uses: ./.github/workflows/build-windows.yml
+    with:
+      toolchain: ${{ matrix.toolchain }}
+      redis_version: ${{ inputs.redis_version }}
+      dist_name: ${{ needs.prepare.outputs.dist_base }}-${{ matrix.toolchain }}
+      artifact_name: redis-${{ matrix.toolchain }}-builds
+      fork_label: ${{ needs.prepare.outputs.fork_label }}
+      optimization: ${{ inputs.optimization }}
+      build_tls: ${{ inputs.build_tls }}
+      apply_patches: true
+      smoke_fork_features: series
+      with_service: true
 
-    steps:
-      - uses: actions/checkout@v4
+  wrapper-integration:
+    needs: [prepare, build]
+    strategy:
+      fail-fast: false
+      matrix:
+        # Both -with-Service packages ship, and the wrapper resolves its runtime per
+        # package (msys-2.0.dll vs cygwin1.dll), so both are run as a real service.
+        toolchain: [msys2, cygwin]
+    uses: ./.github/workflows/wrapper-integration.yml
+    with:
+      artifact_name: redis-${{ matrix.toolchain }}-builds
+      dist_name: ${{ needs.prepare.outputs.dist_base }}-${{ matrix.toolchain }}
 
-      - name: Download source
-        uses: actions/download-artifact@v4
-        with:
-          name: redis-source
-
-      - name: Set environment variables
-        run: |
-          Add-Content -Path $env:GITHUB_ENV -Value "RELEASE_VERSION=${{ needs.prepare.outputs.release_version }}"
-          Add-Content -Path $env:GITHUB_ENV -Value "REDIS_DIST=${{ needs.prepare.outputs.redis_dist }}"
-
-      - name: Cache MSYS2 packages
-        uses: actions/cache@v4
-        with:
-          path: |
-            C:/msys64/var/cache/pacman/pkg
-            C:/msys64/usr/bin
-          key: msys2-${{ runner.os }}-${{ hashFiles('.github/workflows/build-redis.yml') }}
-          restore-keys: msys2-${{ runner.os }}-
-
-      - uses: msys2/setup-msys2@v2
-        with:
-          update: true
-          install: gcc make pkg-config libopenssl openssl-devel zip
-
-      - name: Build Redis with MSYS2
-        run: |
-          workspace=$(pwd)
-
-          # Prepare source code
-          sed -i 's/__GNU_VISIBLE/1/' /usr/include/dlfcn.h
-          tar -xzf redis-${{ env.RELEASE_VERSION }}.tar.gz
-          cd redis-${{ env.RELEASE_VERSION }}/src && ./mkreleasehdr.sh
-          sed -i 's/\"\;/\"/' asciilogo.h
-          echo '" Redis for Windows Project Home \n"' >> asciilogo.h
-          echo '" https://github.com/redis-windows/redis-windows  \n\n";' >> asciilogo.h
-          sed -i 's/all: \(.*\) module_tests$/all: \1/' Makefile
-          cd ..
-
-          # Build Redis
-          make BUILD_TLS=yes CFLAGS="-Wno-char-subscripts -O0" -j$(nproc)
-
-          # Create basic package (without service)
-          cd $workspace
-          mkdir -p ${{ env.REDIS_DIST }}-msys2
-          find redis-${{ env.RELEASE_VERSION }} -mindepth 1 -maxdepth 2 -type f -regex '.*\(\.exe\|\.conf\)' -exec cp -f "{}" "${{ env.REDIS_DIST }}-msys2" \;
-          cp README.md README.zh_CN.md start.bat /usr/bin/msys-2.0.dll /usr/bin/msys-crypto-3.dll /usr/bin/msys-ssl-3.dll /usr/bin/msys-gcc_s-seh-1.dll /usr/bin/msys-stdc++-6.dll ${{ env.REDIS_DIST }}-msys2
-          sed -i 's/pidfile \/var\/run/pidfile ./' ${{ env.REDIS_DIST }}-msys2/redis.conf
-          zip -q -r ${{ env.REDIS_DIST }}-msys2.zip ${{ env.REDIS_DIST }}-msys2
-
-          # Create service package (with RedisService.exe)
-          cp -r ${{ env.REDIS_DIST }}-msys2 ${{ env.REDIS_DIST }}-msys2-with-Service
-          cp publish/* ${{ env.REDIS_DIST }}-msys2-with-Service/
-          zip -q -r ${{ env.REDIS_DIST }}-msys2-with-Service.zip ${{ env.REDIS_DIST }}-msys2-with-Service
-        shell: msys2 {0}
-
-      - name: Verify MSYS2 version
-        run: |
-          $REDIS_MSYS2_VERSION_INFO=(./${{ env.REDIS_DIST }}-msys2-with-Service/redis-server.exe --version )
-          echo $REDIS_MSYS2_VERSION_INFO
-          If ( -not ( $REDIS_MSYS2_VERSION_INFO -match "${{ env.RELEASE_VERSION }}" ) ) {
-            Write-Output "MSYS2 verification failed. Expected: ${{ env.RELEASE_VERSION }}, Got: $REDIS_MSYS2_VERSION_INFO"
-            exit 1
-          }
-
-      - name: Test Redis with MSYS2
-        timeout-minutes: 5
-        run: |
-          try {
-            Start-Process -NoNewWindow -FilePath ".\${{ env.REDIS_DIST }}-msys2-with-Service\redis-server.exe"
-            Start-Sleep -Seconds 2
-            $value = .\${{ env.REDIS_DIST }}-msys2-with-Service\redis-cli.exe SET test_key test_value
-            if ($LASTEXITCODE -ne 0) { throw "Failed to set test key" }
-            $value = .\${{ env.REDIS_DIST }}-msys2-with-Service\redis-cli.exe GET test_key
-            if ($value -ne "test_value") { throw "Test failed" }
-          }
-          finally {
-            Stop-Process -Name "redis-server" -ErrorAction SilentlyContinue
-          }
-
-      - name: Calculate hash values for MSYS2 builds
-        run: |
-          'MSYS2 Builds Hashes' | Out-File hashes-msys2.txt
-          '====================' | Out-File -Append hashes-msys2.txt
-          Get-FileHash .\${{ env.REDIS_DIST }}-msys2.zip | Format-List | Out-File -Append hashes-msys2.txt
-          Get-FileHash .\${{ env.REDIS_DIST }}-msys2-with-Service.zip | Format-List | Out-File -Append hashes-msys2.txt
-
-      - name: Upload MSYS2 builds
-        uses: actions/upload-artifact@v4
-        with:
-          name: redis-msys2-builds
-          path: |
-            ${{ env.REDIS_DIST }}-msys2.zip
-            ${{ env.REDIS_DIST }}-msys2-with-Service.zip
-            hashes-msys2.txt
-
-  build-cygwin:
-    needs: prepare
-    runs-on: windows-latest
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Download source
-        uses: actions/download-artifact@v4
-        with:
-          name: redis-source
-
-      - name: Set environment variables
-        run: |
-          Add-Content -Path $env:GITHUB_ENV -Value "RELEASE_VERSION=${{ needs.prepare.outputs.release_version }}"
-          Add-Content -Path $env:GITHUB_ENV -Value "REDIS_DIST=${{ needs.prepare.outputs.redis_dist }}"
-
-      - name: Cache Cygwin packages
-        uses: actions/cache@v4
-        with:
-          path: |
-            C:/cygwin64
-            C:/cygwin64/var/cache
-          key: cygwin-${{ runner.os }}-${{ hashFiles('.github/workflows/build-redis.yml') }}
-          restore-keys: cygwin-${{ runner.os }}-
-
-      - uses: cygwin/cygwin-install-action@master
-        with:
-          packages: make gcc-core gcc-g++ pkg-config libssl-devel zip
-
-      - name: Build Redis with Cygwin
-        env:
-          CYGWIN_NOWINPATH: 1
-        run: >-
-          workspace=$(pwd) ;
-          sed -i 's/__GNU_VISIBLE/1/' /usr/include/dlfcn.h ;
-          tar -xzf redis-${{ env.RELEASE_VERSION }}.tar.gz ;
-          cd redis-${{ env.RELEASE_VERSION }}/src && ./mkreleasehdr.sh ;
-          sed -i 's/\"\;/\"/' asciilogo.h ;
-          echo '" Redis for Windows Project Home \n"' >> asciilogo.h ;
-          echo '" https://github.com/redis-windows/redis-windows  \n\n";' >> asciilogo.h ;
-          sed -i 's/all: \(.*\) module_tests$/all: \1/' Makefile ;
-          cd .. ;
-          make BUILD_TLS=yes CFLAGS="-Wno-char-subscripts -O0" -j$(nproc) ;
-          cd $workspace ;
-          mkdir -p ${{ env.REDIS_DIST }}-cygwin ;
-          find redis-${{ env.RELEASE_VERSION }} -mindepth 1 -maxdepth 2 -type f -regex '.*\(\.exe\|\.conf\)' -exec cp -f "{}" "${{ env.REDIS_DIST }}-cygwin" \; ;
-          cp README.md README.zh_CN.md start.bat /bin/cygcrypto-3.dll /bin/cygwin1.dll /bin/cygssl-3.dll /bin/cygz.dll /bin/cyggcc_s-seh-1.dll /bin/cygstdc++-6.dll /bin/cygiconv-2.dll /bin/cygintl-8.dll ${{ env.REDIS_DIST }}-cygwin ;
-          sed -i 's/pidfile \/var\/run/pidfile ./' ${{ env.REDIS_DIST }}-cygwin/redis.conf ;
-          zip -q -r ${{ env.REDIS_DIST }}-cygwin.zip ${{ env.REDIS_DIST }}-cygwin ;
-          cp -r ${{ env.REDIS_DIST }}-cygwin ${{ env.REDIS_DIST }}-cygwin-with-Service ;
-          cp publish/* ${{ env.REDIS_DIST }}-cygwin-with-Service/ ;
-          zip -q -r ${{ env.REDIS_DIST }}-cygwin-with-Service.zip ${{ env.REDIS_DIST }}-cygwin-with-Service
-        shell: bash
-
-      - name: Verify Cygwin version
-        run: |
-          $REDIS_CYGWIN_VERSION_INFO=(./${{ env.REDIS_DIST }}-cygwin-with-Service/redis-server.exe --version )
-          echo $REDIS_CYGWIN_VERSION_INFO
-          If ( -not ( $REDIS_CYGWIN_VERSION_INFO -match "${{ env.RELEASE_VERSION }}" ) ) {
-            Write-Output "Cygwin verification failed. Expected: ${{ env.RELEASE_VERSION }}, Got: $REDIS_CYGWIN_VERSION_INFO"
-            exit 1
-          }
-
-      - name: Test Redis with Cygwin
-        timeout-minutes: 5
-        run: |
-          try {
-            Start-Process -NoNewWindow -FilePath ".\${{ env.REDIS_DIST }}-cygwin-with-Service\redis-server.exe"
-            Start-Sleep -Seconds 2
-            $value = .\${{ env.REDIS_DIST }}-cygwin-with-Service\redis-cli.exe SET test_key test_value
-            if ($LASTEXITCODE -ne 0) { throw "Failed to set test key" }
-            $value = .\${{ env.REDIS_DIST }}-cygwin-with-Service\redis-cli.exe GET test_key
-            if ($value -ne "test_value") { throw "Test failed" }
-          }
-          finally {
-            Stop-Process -Name "redis-server" -ErrorAction SilentlyContinue
-          }
-
-      - name: Calculate hash values for Cygwin builds
-        run: |
-          'Cygwin Builds Hashes' | Out-File hashes-cygwin.txt
-          '====================' | Out-File -Append hashes-cygwin.txt
-          Get-FileHash .\${{ env.REDIS_DIST }}-cygwin.zip | Format-List | Out-File -Append hashes-cygwin.txt
-          Get-FileHash .\${{ env.REDIS_DIST }}-cygwin-with-Service.zip | Format-List | Out-File -Append hashes-cygwin.txt
-
-      - name: Upload Cygwin builds
-        uses: actions/upload-artifact@v4
-        with:
-          name: redis-cygwin-builds
-          path: |
-            ${{ env.REDIS_DIST }}-cygwin.zip
-            ${{ env.REDIS_DIST }}-cygwin-with-Service.zip
-            hashes-cygwin.txt
+  # The real-server wrapper tests skip on Windows; run them on Linux against the patched tree.
+  wrapper-unit-linux:
+    needs: patches
+    uses: ./.github/workflows/wrapper-unit-linux.yml
+    with:
+      redis_version: ${{ inputs.redis_version }}
 
   release:
-    needs: [prepare, build-msys2, build-cygwin]
-    runs-on: windows-latest
-
+    needs: [prepare, build, wrapper-integration, wrapper-unit-linux]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    env:
+      TAG: ${{ needs.prepare.outputs.release_tag }}
+      DIST_BASE: ${{ needs.prepare.outputs.dist_base }}
+      REDIS_VERSION: ${{ inputs.redis_version }}
+      OPTIMIZATION: ${{ inputs.optimization }}
+      BUILD_TLS: ${{ inputs.build_tls }}
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Set environment variables
-        run: |
-          Add-Content -Path $env:GITHUB_ENV -Value "RELEASE_VERSION=${{ needs.prepare.outputs.release_version }}"
-          Add-Content -Path $env:GITHUB_ENV -Value "REDIS_DIST=${{ needs.prepare.outputs.redis_dist }}"
-
       - name: Download all artifacts
         uses: actions/download-artifact@v4
 
-      - name: Prepare release
+      - name: Prepare the release body
         run: |
-          # Combine all hash files
-          Get-Content -Path redis-source/redis_latest_body.txt | Out-File -FilePath release_body.txt
-          "`nHashes" | Out-File -Append -FilePath release_body.txt
-          "=========" | Out-File -Append -FilePath release_body.txt
-          Get-Content -Path redis-msys2-builds/hashes-msys2.txt | Out-File -Append -FilePath release_body.txt
-          Get-Content -Path redis-cygwin-builds/hashes-cygwin.txt | Out-File -Append -FilePath release_body.txt
-
-          # Add workflow information
-          "From workflow: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}" | Out-File -Append -FilePath release_body.txt
+          set -euo pipefail
+          {
+            echo "Redis $REDIS_VERSION for Windows, $FORK_LABEL build \`$TAG\`: upstream Redis with this repository's patch series, built with MSYS2 and Cygwin at \`OPTIMIZATION=$OPTIMIZATION\`, TLS: $BUILD_TLS."
+            echo
+            echo "- \`*-msys2*.zip\` / \`*-cygwin*.zip\`: stripped binaries. \`*-with-Service.zip\` adds RedisService.exe."
+            echo "- \`*-debug.zip\`: the same binaries unstripped, for post-mortem debugging."
+            echo
+            echo "## Upstream release notes"
+            echo
+            cat redis-source/redis_release_notes.md
+            echo
+            for tc in msys2 cygwin; do
+              echo "## Build information ($tc)"
+              echo
+              echo '```text'
+              cat "redis-$tc-builds/$DIST_BASE-$tc-build-info.txt"
+              echo '```'
+              echo
+            done
+            echo "## SHA256"
+            echo
+            echo '```text'
+            cat redis-msys2-builds/hashes-*.txt redis-cygwin-builds/hashes-*.txt
+            echo '```'
+            echo
+            echo "From workflow: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          } >release_body.md
+          wc -c release_body.md
 
       - name: Release
         uses: softprops/action-gh-release@v2
         with:
+          token: ${{ github.token }}
+          name: Redis ${{ inputs.redis_version }} for Windows (${{ needs.prepare.outputs.release_tag }})
+          tag_name: ${{ needs.prepare.outputs.release_tag }}
+          target_commitish: ${{ github.sha }}
+          body_path: release_body.md
+          make_latest: ${{ inputs.make_latest && 'true' || 'false' }}
+          prerelease: ${{ inputs.prerelease }}
           overwrite_files: false
           fail_on_unmatched_files: true
-          token: ${{ secrets.GITHUB_TOKEN }}
-          name: Redis ${{ env.RELEASE_VERSION }} for Windows
-          tag_name: ${{ env.RELEASE_VERSION }}
-          body_path: release_body.txt
-          make_latest: "${{ inputs.make_latest }}"
-          prerelease: ${{ inputs.prerelease }}
           files: |
-            redis-cygwin-builds/${{ env.REDIS_DIST }}-cygwin.zip
-            redis-cygwin-builds/${{ env.REDIS_DIST }}-cygwin-with-Service.zip
-            redis-msys2-builds/${{ env.REDIS_DIST }}-msys2.zip
-            redis-msys2-builds/${{ env.REDIS_DIST }}-msys2-with-Service.zip
+            redis-msys2-builds/${{ needs.prepare.outputs.dist_base }}-msys2.zip
+            redis-msys2-builds/${{ needs.prepare.outputs.dist_base }}-msys2-with-Service.zip
+            redis-msys2-builds/${{ needs.prepare.outputs.dist_base }}-msys2-debug.zip
+            redis-cygwin-builds/${{ needs.prepare.outputs.dist_base }}-cygwin.zip
+            redis-cygwin-builds/${{ needs.prepare.outputs.dist_base }}-cygwin-with-Service.zip
+            redis-cygwin-builds/${{ needs.prepare.outputs.dist_base }}-cygwin-debug.zip
+            redis-msys2-builds/hashes-${{ needs.prepare.outputs.dist_base }}-msys2.txt
+            redis-cygwin-builds/hashes-${{ needs.prepare.outputs.dist_base }}-cygwin.txt

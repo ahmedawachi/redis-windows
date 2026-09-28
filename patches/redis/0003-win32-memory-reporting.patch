@@ -1,0 +1,315 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: ahmedawachi <121810925+ahmedawachi@users.noreply.github.com>
+Date: Mon, 28 Sep 2026 09:33:15 +0300
+Subject: [PATCH 3/7] cygwin: report real process and system memory through
+ Win32
+
+What: Cygwin/MSYS2 builds only (HAVE_WIN32_MEMINFO, set in config.h when
+__CYGWIN__ is defined; the Makefile adds the object when uname -s starts
+with CYGWIN or MSYS, and adds nothing anywhere else).
+- New src/win32_meminfo.c/.h. The .c file includes only <windows.h>,
+  <psapi.h> and its own header, and exposes plain-C functions:
+  win32GetProcessMemory() (K32GetProcessMemoryInfo: PrivateUsage,
+  WorkingSetSize) and win32GetSystemMemory() (K32GetPerformanceInfo:
+  CommitTotal, CommitLimit, PhysicalAvailable, each multiplied by PageSize;
+  it falls back to GlobalMemoryStatusEx if GetPerformanceInfo fails).
+  PSAPI_VERSION 2 selects the kernel32 K32* exports, which the Cygwin and
+  MSYS2 gcc drivers already link (-lkernel32), so no import library is
+  added. Neither function calls malloc.
+- zmalloc_get_rss() returns the working set. Before, it returned
+  zmalloc_used_memory(), so used_memory_rss, mem_fragmentation_ratio and
+  the allocator_* ratios were fake (every ratio read 1.00).
+- zmalloc_get_private_dirty(-1), which only the fork child calls, returns
+  the child's PrivateUsage. The child's log line now reads "Fork private
+  copy for RDB: ... (Cygwin fork is not copy-on-write)" instead of
+  "Fork CoW ... 0 MB". rdb_last_cow_size and the related INFO fields now
+  carry that figure on these builds.
+- INFO memory gains process_private_bytes, process_working_set,
+  system_commit_total and system_commit_limit, read live on each INFO
+  (0 = unavailable). They are not sampled in serverCron.
+
+Why: a production crash of the MSYS2 build was Windows refusing a commit, and none of the numbers
+that would have shown commit pressure were visible. It deliberately does
+not define HAVE_PROC_STAT or read /proc/self/stat: Cygwin's field 24 counts 4 KB pages while
+sysconf(_SC_PAGESIZE) is 64 KB, so RSS would read 16x too high. statm is
+not read either: it walks the whole working-set list with malloc.
+
+Risk: low. One Win32 call per 100 ms cron sample for the working set
+(ProcessVmCounters, cheap). GetPerformanceInfo is heavier (it counts every
+process's handles and threads) and runs only when INFO memory is
+requested. Whether the w32api headers ship with MSYS2 "gcc" and Cygwin
+"gcc-core" is verified by the CI build, not here. The working set
+includes shared DLL pages and can be trimmed by Windows, so
+mem_fragmentation_ratio can now read below 1.0.
+---
+ src/Makefile        | 12 +++++--
+ src/childinfo.c     |  7 +++++
+ src/config.h        |  5 +++
+ src/server.c        | 19 +++++++++++
+ src/win32_meminfo.c | 77 +++++++++++++++++++++++++++++++++++++++++++++
+ src/win32_meminfo.h | 34 ++++++++++++++++++++
+ src/zmalloc.c       | 18 +++++++++++
+ 7 files changed, 169 insertions(+), 3 deletions(-)
+ create mode 100644 src/win32_meminfo.c
+ create mode 100644 src/win32_meminfo.h
+
+diff --git a/src/Makefile b/src/Makefile
+index 5cb4f67..b046dd6 100644
+--- a/src/Makefile
++++ b/src/Makefile
+@@ -399,13 +399,19 @@ else
+ 	GEN_COMMANDS_FLAGS=
+ endif
+ 
++# Cygwin and MSYS2 builds report memory through Win32 (see win32_meminfo.c).
++# zmalloc.o needs it, and zmalloc.o is linked into every binary below.
++ifneq (,$(filter CYGWIN% MSYS%,$(uname_S)))
++	WIN32_MEMINFO_OBJ=win32_meminfo.o
++endif
++
+ REDIS_SERVER_NAME=redis-server$(PROG_SUFFIX)
+ REDIS_SENTINEL_NAME=redis-sentinel$(PROG_SUFFIX)
+-REDIS_SERVER_OBJ=threads_mngr.o memory_prefetch.o adlist.o quicklist.o ae.o anet.o dict.o ebuckets.o eventnotifier.o iothread.o mstr.o entry.o kvstore.o fwtree.o estore.o server.o sds.o zmalloc.o lzf_c.o lzf_d.o pqsort.o zipmap.o sha1.o ziplist.o release.o networking.o util.o object.o db.o replication.o rdb.o t_string.o t_list.o t_set.o t_zset.o t_hash.o t_array.o sparsearray.o config.o aof.o pubsub.o multi.o debug.o sort.o intset.o syncio.o cluster.o cluster_asm.o cluster_legacy.o cluster_slot_stats.o crc16.o endianconv.o slowlog.o eval.o bio.o rio.o rand.o memtest.o syscheck.o crcspeed.o crccombine.o crc64.o bitops.o sentinel.o notify.o setproctitle.o blocked.o hyperloglog.o latency.o sparkline.o redis-check-rdb.o redis-check-aof.o geo.o lazyfree.o module.o evict.o expire.o geohash.o geohash_helper.o childinfo.o defrag.o siphash.o rax.o t_stream.o listpack.o localtime.o lolwut.o lolwut5.o lolwut6.o lolwut8.o acl.o tracking.o socket.o tls.o sha256.o timeout.o setcpuaffinity.o monotonic.o mt19937-64.o resp_parser.o call_reply.o script_lua.o script.o functions.o function_lua.o commands.o strl.o connection.o unix.o logreqres.o keymeta.o chk.o hotkeys.o gcra.o vector.o fast_float_strtod.o client_comp.o
++REDIS_SERVER_OBJ=threads_mngr.o memory_prefetch.o adlist.o quicklist.o ae.o anet.o dict.o ebuckets.o eventnotifier.o iothread.o mstr.o entry.o kvstore.o fwtree.o estore.o server.o sds.o zmalloc.o lzf_c.o lzf_d.o pqsort.o zipmap.o sha1.o ziplist.o release.o networking.o util.o object.o db.o replication.o rdb.o t_string.o t_list.o t_set.o t_zset.o t_hash.o t_array.o sparsearray.o config.o aof.o pubsub.o multi.o debug.o sort.o intset.o syncio.o cluster.o cluster_asm.o cluster_legacy.o cluster_slot_stats.o crc16.o endianconv.o slowlog.o eval.o bio.o rio.o rand.o memtest.o syscheck.o crcspeed.o crccombine.o crc64.o bitops.o sentinel.o notify.o setproctitle.o blocked.o hyperloglog.o latency.o sparkline.o redis-check-rdb.o redis-check-aof.o geo.o lazyfree.o module.o evict.o expire.o geohash.o geohash_helper.o childinfo.o defrag.o siphash.o rax.o t_stream.o listpack.o localtime.o lolwut.o lolwut5.o lolwut6.o lolwut8.o acl.o tracking.o socket.o tls.o sha256.o timeout.o setcpuaffinity.o monotonic.o mt19937-64.o resp_parser.o call_reply.o script_lua.o script.o functions.o function_lua.o commands.o strl.o connection.o unix.o logreqres.o keymeta.o chk.o hotkeys.o gcra.o vector.o fast_float_strtod.o client_comp.o $(WIN32_MEMINFO_OBJ)
+ REDIS_CLI_NAME=redis-cli$(PROG_SUFFIX)
+-REDIS_CLI_OBJ=anet.o adlist.o dict.o redis-cli.o zmalloc.o release.o ae.o redisassert.o crcspeed.o crccombine.o crc64.o siphash.o crc16.o monotonic.o cli_common.o mt19937-64.o strl.o cli_commands.o
++REDIS_CLI_OBJ=anet.o adlist.o dict.o redis-cli.o zmalloc.o release.o ae.o redisassert.o crcspeed.o crccombine.o crc64.o siphash.o crc16.o monotonic.o cli_common.o mt19937-64.o strl.o cli_commands.o $(WIN32_MEMINFO_OBJ)
+ REDIS_BENCHMARK_NAME=redis-benchmark$(PROG_SUFFIX)
+-REDIS_BENCHMARK_OBJ=ae.o anet.o redis-benchmark.o adlist.o dict.o zmalloc.o redisassert.o release.o crcspeed.o crccombine.o crc64.o siphash.o crc16.o monotonic.o cli_common.o mt19937-64.o strl.o
++REDIS_BENCHMARK_OBJ=ae.o anet.o redis-benchmark.o adlist.o dict.o zmalloc.o redisassert.o release.o crcspeed.o crccombine.o crc64.o siphash.o crc16.o monotonic.o cli_common.o mt19937-64.o strl.o $(WIN32_MEMINFO_OBJ)
+ REDIS_CHECK_RDB_NAME=redis-check-rdb$(PROG_SUFFIX)
+ REDIS_CHECK_AOF_NAME=redis-check-aof$(PROG_SUFFIX)
+ ALL_SOURCES=$(sort $(patsubst %.o,%.c,$(REDIS_SERVER_OBJ) $(REDIS_VEC_SETS_OBJ) $(REDIS_CLI_OBJ) $(REDIS_BENCHMARK_OBJ)))
+diff --git a/src/childinfo.c b/src/childinfo.c
+index 95cbbbb..e25b5b1 100644
+--- a/src/childinfo.c
++++ b/src/childinfo.c
+@@ -77,9 +77,16 @@ void sendChildInfoGeneric(childInfoType info_type, size_t keys, double progress,
+ 
+         int cow_info = (info_type != CHILD_INFO_TYPE_CURRENT_INFO);
+         if (cow || cow_info) {
++#ifdef HAVE_WIN32_MEMINFO
++            serverLog(cow_info ? LL_NOTICE : LL_VERBOSE,
++                      "Fork private copy for %s: current %zu MB, peak %zu MB, average %llu MB "
++                      "(Cygwin fork is not copy-on-write)",
++                      pname, cow>>20, peak_cow>>20, (sum_cow/update_count)>>20);
++#else
+             serverLog(cow_info ? LL_NOTICE : LL_VERBOSE,
+                       "Fork CoW for %s: current %zu MB, peak %zu MB, average %llu MB",
+                       pname, cow>>20, peak_cow>>20, (sum_cow/update_count)>>20);
++#endif
+         }
+     }
+ 
+diff --git a/src/config.h b/src/config.h
+index 373cf54..d12b8b9 100644
+--- a/src/config.h
++++ b/src/config.h
+@@ -58,6 +58,11 @@
+ #define HAVE_TASKINFO 1
+ #endif
+ 
++/* Win32 memory counters (win32_meminfo.c) on Cygwin and MSYS2 */
++#if defined(__CYGWIN__)
++#define HAVE_WIN32_MEMINFO 1
++#endif
++
+ /* Test for somaxconn check */
+ #if defined(__APPLE__) || defined(__FreeBSD__)
+ #define HAVE_SYSCTL_KIPC_SOMAXCONN 1
+diff --git a/src/server.c b/src/server.c
+index 69a0868..933c595 100644
+--- a/src/server.c
++++ b/src/server.c
+@@ -33,6 +33,9 @@
+ #include "estore.h"
+ #include "chk.h"
+ #include "fast_float_strtod.h"
++#ifdef HAVE_WIN32_MEMINFO
++#include "win32_meminfo.h"
++#endif
+ 
+ #include <time.h>
+ #include <signal.h>
+@@ -6622,6 +6625,22 @@ sds genRedisInfoString(dict *section_dict, int all_sections, int everything) {
+             "active_defrag_running:%d\r\n", server.active_defrag_running,
+             "lazyfree_pending_objects:%zu\r\n", lazyfreeGetPendingObjectsCount(),
+             "lazyfreed_objects:%zu\r\n", lazyfreeGetFreedObjectsCount()));
++#ifdef HAVE_WIN32_MEMINFO
++        /* Live Win32 counters. used_memory_rss above is the working set,
++         * which Windows can trim; the commit figures are what allocations
++         * actually fail against. 0 means the counter was unavailable. */
++        win32ProcessMemory pm;
++        win32SystemMemory sm;
++        win32GetProcessMemory(&pm);
++        win32GetSystemMemory(&sm);
++        info = sdscatprintf(info,
++            "process_private_bytes:%zu\r\n"
++            "process_working_set:%zu\r\n"
++            "system_commit_total:%zu\r\n"
++            "system_commit_limit:%zu\r\n",
++            pm.private_bytes, pm.working_set,
++            sm.commit_total, sm.commit_limit);
++#endif
+         freeMemoryOverheadData(mh);
+     }
+ 
+diff --git a/src/win32_meminfo.c b/src/win32_meminfo.c
+new file mode 100644
+index 0000000..6605435
+--- /dev/null
++++ b/src/win32_meminfo.c
+@@ -0,0 +1,77 @@
++/*
++ * Win32 process and system memory counters for Cygwin/MSYS2 builds.
++ *
++ * Cygwin has no smaps, and /proc/self/stat reports RSS in 4 KB pages while
++ * sysconf(_SC_PAGESIZE) returns the 64 KB allocation granularity, so the
++ * Linux code paths in zmalloc.c would report nonsense. This file asks
++ * Windows directly. It includes only Win32 headers so that windows.h never
++ * meets the POSIX headers the rest of Redis uses.
++ *
++ * The K32* entry points live in kernel32.dll (Windows 7 and later), which the
++ * Cygwin and MSYS2 gcc drivers link by default, so no psapi import library
++ * is needed.
++ *
++ * Licensed under your choice of (a) the Redis Source Available License 2.0
++ * (RSALv2); or (b) the Server Side Public License v1 (SSPLv1); or (c) the
++ * GNU Affero General Public License v3 (AGPLv3).
++ */
++
++#ifndef WIN32_LEAN_AND_MEAN
++#define WIN32_LEAN_AND_MEAN
++#endif
++#undef PSAPI_VERSION
++#define PSAPI_VERSION 2   /* declare the kernel32 K32* names */
++#include <windows.h>
++#include <psapi.h>
++
++#include "win32_meminfo.h"
++
++int win32GetProcessMemory(win32ProcessMemory *pm) {
++    PROCESS_MEMORY_COUNTERS_EX pmc;
++
++    ZeroMemory(&pmc, sizeof(pmc));
++    pmc.cb = sizeof(pmc);
++    if (!K32GetProcessMemoryInfo(GetCurrentProcess(),
++                                 (PROCESS_MEMORY_COUNTERS *)&pmc, sizeof(pmc)))
++    {
++        pm->private_bytes = pm->working_set = 0;
++        return 0;
++    }
++    pm->private_bytes = pmc.PrivateUsage;
++    pm->working_set = pmc.WorkingSetSize;
++    return 1;
++}
++
++int win32GetSystemMemory(win32SystemMemory *sm) {
++    PERFORMANCE_INFORMATION pi;
++    MEMORYSTATUSEX ms;
++
++    ZeroMemory(&pi, sizeof(pi));
++    pi.cb = sizeof(pi);
++    if (K32GetPerformanceInfo(&pi, sizeof(pi))) {
++        sm->commit_total = pi.CommitTotal * pi.PageSize;
++        sm->commit_limit = pi.CommitLimit * pi.PageSize;
++        sm->phys_available = pi.PhysicalAvailable * pi.PageSize;
++        sm->source = "GetPerformanceInfo";
++        return 1;
++    }
++
++    /* GetPerformanceInfo also counts the handles and threads of every
++     * process, which may need a working buffer from the Windows heap, so it
++     * can fail under the very commit pressure we want to report.
++     * GlobalMemoryStatusEx needs no buffer. Its page file figures are capped
++     * by a job object's commit limit, when there is one. */
++    ZeroMemory(&ms, sizeof(ms));
++    ms.dwLength = sizeof(ms);
++    if (GlobalMemoryStatusEx(&ms)) {
++        sm->commit_limit = (size_t)ms.ullTotalPageFile;
++        sm->commit_total = (size_t)(ms.ullTotalPageFile - ms.ullAvailPageFile);
++        sm->phys_available = (size_t)ms.ullAvailPhys;
++        sm->source = "GlobalMemoryStatusEx";
++        return 1;
++    }
++
++    sm->commit_total = sm->commit_limit = sm->phys_available = 0;
++    sm->source = "unavailable";
++    return 0;
++}
+diff --git a/src/win32_meminfo.h b/src/win32_meminfo.h
+new file mode 100644
+index 0000000..52fa8f0
+--- /dev/null
++++ b/src/win32_meminfo.h
+@@ -0,0 +1,34 @@
++/*
++ * Win32 process and system memory counters for Cygwin/MSYS2 builds.
++ *
++ * Licensed under your choice of (a) the Redis Source Available License 2.0
++ * (RSALv2); or (b) the Server Side Public License v1 (SSPLv1); or (c) the
++ * GNU Affero General Public License v3 (AGPLv3).
++ */
++
++#ifndef __WIN32_MEMINFO_H
++#define __WIN32_MEMINFO_H
++
++#include <stddef.h>
++
++/* Counters of the calling process, in bytes. */
++typedef struct win32ProcessMemory {
++    size_t private_bytes;   /* PrivateUsage: private commit charge */
++    size_t working_set;     /* WorkingSetSize: resident pages, shared DLL pages included */
++} win32ProcessMemory;
++
++/* System-wide commit and physical memory, in bytes. */
++typedef struct win32SystemMemory {
++    size_t commit_total;    /* committed by all processes and the kernel */
++    size_t commit_limit;    /* RAM plus page files: commits above it fail */
++    size_t phys_available;
++    const char *source;     /* "GetPerformanceInfo" or "GlobalMemoryStatusEx" */
++} win32SystemMemory;
++
++/* Both return 1 on success and 0 on failure, with every field zeroed (and
++ * source set to "unavailable"). Neither calls malloc, so both are safe to use
++ * from the out-of-memory handler. */
++int win32GetProcessMemory(win32ProcessMemory *pm);
++int win32GetSystemMemory(win32SystemMemory *sm);
++
++#endif
+diff --git a/src/zmalloc.c b/src/zmalloc.c
+index 61f428a..675c0bd 100644
+--- a/src/zmalloc.c
++++ b/src/zmalloc.c
+@@ -883,6 +883,15 @@ size_t zmalloc_get_rss(void) {
+     close(fd);
+     return info.pr_rssize;
+ }
++#elif defined(HAVE_WIN32_MEMINFO)
++#include "win32_meminfo.h"
++
++size_t zmalloc_get_rss(void) {
++    win32ProcessMemory pm;
++
++    if (win32GetProcessMemory(&pm)) return pm.working_set;
++    return zmalloc_used_memory();
++}
+ #else
+ size_t zmalloc_get_rss(void) {
+     /* If we can't get the RSS in an OS-specific way for this system just
+@@ -1194,6 +1203,15 @@ size_t zmalloc_get_smap_bytes_by_field(char *field, long pid) {
+  * call can be slow, exceeding 1000ms!
+  */
+ size_t zmalloc_get_private_dirty(long pid) {
++#if defined(HAVE_WIN32_MEMINFO)
++    /* Cygwin fork is not copy-on-write: the child starts with a private copy
++     * of the parent's heap, so its own private commit charge is what the fork
++     * cost. Only the calling process (pid -1) can be measured this way. */
++    if (pid == -1) {
++        win32ProcessMemory pm;
++        if (win32GetProcessMemory(&pm)) return pm.private_bytes;
++    }
++#endif
+     return zmalloc_get_smap_bytes_by_field("Private_Dirty:",pid);
+ }
+ 

@@ -1,0 +1,79 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: ahmedawachi <121810925+ahmedawachi@users.noreply.github.com>
+Date: Mon, 28 Sep 2026 09:33:51 +0300
+Subject: [PATCH 4/7] cygwin: log system and process commit when an allocation
+ fails
+
+What: on Cygwin/MSYS2 builds (HAVE_WIN32_MEMINFO, from the previous
+patch), redisOutOfMemoryHandler() first samples win32GetSystemMemory() and
+win32GetProcessMemory(). After the existing "Out Of Memory allocating N
+bytes!" line, and before serverPanic(), it writes one line:
+
+  <pid>:signal-handler (<unix time>) Out Of Memory diagnostics:
+  system_commit_total=... system_commit_limit=...
+  system_physical_available=... process_private_bytes=...
+  process_working_set=... source=GetPerformanceInfo
+
+All values are in bytes. The line goes through serverLogFromHandler(), the
+existing async-signal-safe logger. It formats into a stack buffer and uses
+open()/write(), so neither our code nor the logger allocates heap memory
+after the failure. The "signal-handler" prefix is that logger's fixed
+format. Other platforms are unchanged.
+
+Why: on this platform
+malloc returns NULL only after Windows has refused a commit on every
+path. The log of a production crash could not say whether the host had
+reached its commit limit or Redis's own commit had grown unseen. With this line, every future OOM log shows which.
+errno and GetLastError() are not logged: errno is always ENOMEM, and
+GetLastError() has been overwritten by the sbrk/mmap retries and the log
+write.
+
+How to trigger: the existing DEBUG OOM subcommand (zmalloc(SIZE_MAX/2))
+goes through the same handler, so no new debug hook is needed. DEBUG must
+be enabled (enable-debug-command).
+
+Risk: very low. The process is about to abort anyway. If
+GetPerformanceInfo fails under commit pressure, the values come from
+GlobalMemoryStatusEx (source=GlobalMemoryStatusEx). If both fail they
+read 0 with source=unavailable.
+---
+ src/server.c | 24 ++++++++++++++++++++++++
+ 1 file changed, 24 insertions(+)
+
+diff --git a/src/server.c b/src/server.c
+index 933c595..8ddd83d 100644
+--- a/src/server.c
++++ b/src/server.c
+@@ -7877,8 +7877,32 @@ void loadDataFromDisk(void) {
+ }
+ 
+ void redisOutOfMemoryHandler(size_t allocation_size) {
++#ifdef HAVE_WIN32_MEMINFO
++    /* On Windows a failed allocation means a refused commit, so record
++     * whether the system or this process was out of commit. Sample first,
++     * before logging touches memory. errno (always ENOMEM here) and
++     * GetLastError() (already overwritten) cannot tell the cause. */
++    win32ProcessMemory pm;
++    win32SystemMemory sm;
++    win32GetProcessMemory(&pm);
++    win32GetSystemMemory(&sm);
++#endif
+     serverLog(LL_WARNING,"Out Of Memory allocating %zu bytes!",
+         allocation_size);
++#ifdef HAVE_WIN32_MEMINFO
++    /* The async-signal-safe logger formats into a stack buffer and writes
++     * with open()/write(), so this line needs no heap. */
++    serverLogFromHandler(LL_WARNING,
++        "Out Of Memory diagnostics: system_commit_total=%llu "
++        "system_commit_limit=%llu system_physical_available=%llu "
++        "process_private_bytes=%llu process_working_set=%llu source=%s",
++        (unsigned long long) sm.commit_total,
++        (unsigned long long) sm.commit_limit,
++        (unsigned long long) sm.phys_available,
++        (unsigned long long) pm.private_bytes,
++        (unsigned long long) pm.working_set,
++        sm.source);
++#endif
+     serverPanic("Redis aborting for OUT OF MEMORY. Allocating %zu bytes!",
+         allocation_size);
+ }

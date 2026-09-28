@@ -1,0 +1,56 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: ahmedawachi <121810925+ahmedawachi@users.noreply.github.com>
+Date: Mon, 28 Sep 2026 09:29:28 +0300
+Subject: [PATCH 1/7] cygwin: expose dladdr()/Dl_info in debug.c without
+ editing system headers
+
+What: on __CYGWIN__ builds (Cygwin and MSYS2), debug.c now sets
+__GNU_VISIBLE to 1 only around its own #include <dlfcn.h>, then restores
+it to 0. Every other platform, and a Cygwin build that already defines
+_GNU_SOURCE, takes the unchanged plain #include.
+
+Why: Cygwin's <dlfcn.h> declares Dl_info and
+dladdr() only under "#if __GNU_VISIBLE", newlib sets that only for
+_GNU_SOURCE, and fmacros.h defines _GNU_SOURCE only on Linux, so debug.c
+(dumpX86Calls, dumpCodeAroundEIP) does not compile on either toolchain.
+The redis-windows CI worked around it with
+"sed -i 's/__GNU_VISIBLE/1/' /usr/include/dlfcn.h", which mutates the
+toolchain and was persisted by the cached C:/cygwin64. This patch has the
+same effect as that sed, limited to debug.c, so the produced code is
+unchanged. It deliberately does not define _GNU_SOURCE for the file:
+that would also switch strerror_r() and basename() to their GNU variants
+and widen every other header's visibility.
+
+Risk: very low. Preprocessor-only change inside one file; no code path
+changes on any platform. If a future runtime pulls <dlfcn.h> in earlier
+(through another header) the declarations stay hidden and the build fails
+loudly, exactly as it does today without the sed.
+---
+ src/debug.c | 13 +++++++++++++
+ 1 file changed, 13 insertions(+)
+
+diff --git a/src/debug.c b/src/debug.c
+index 24c8c7d..475ae08 100644
+--- a/src/debug.c
++++ b/src/debug.c
+@@ -27,7 +27,20 @@
+ 
+ #include <arpa/inet.h>
+ #include <signal.h>
++#if defined(__CYGWIN__) && !__GNU_VISIBLE
++/* Cygwin/MSYS2 <dlfcn.h> declares Dl_info and dladdr() only when
++ * __GNU_VISIBLE is set, and fmacros.h defines _GNU_SOURCE only on Linux.
++ * Expose just those declarations rather than compiling this file in GNU
++ * mode, which would also switch strerror_r() and basename() to their GNU
++ * variants. */
++#undef __GNU_VISIBLE
++#define __GNU_VISIBLE 1
+ #include <dlfcn.h>
++#undef __GNU_VISIBLE
++#define __GNU_VISIBLE 0
++#else
++#include <dlfcn.h>
++#endif
+ #include <fcntl.h>
+ #include <sys/mman.h>
+ #include <unistd.h>

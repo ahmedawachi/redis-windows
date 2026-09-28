@@ -1,0 +1,69 @@
+name: Wrapper tests against a real redis-server (Linux)
+
+# Reusable: builds the patched Redis tree on Linux (with TLS) and runs the wrapper unit
+# tests with REDIS_SERVER_PATH / REDIS_TLS_SERVER_PATH set, so the real-server tests
+# (RealRedisControlTests, SupervisorIntegrationTests, TlsTests...) run instead of
+# skipping. On Windows they skip by design; ci/wrapper-integration.ps1 covers Windows.
+
+on:
+  workflow_call:
+    inputs:
+      redis_version:
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    name: Wrapper real-server tests (Redis ${{ inputs.redis_version }}, Linux)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build the patched redis-server
+        env:
+          REDIS_VERSION: ${{ inputs.redis_version }}
+        run: |
+          set -euo pipefail
+          case "$REDIS_VERSION" in *[!A-Za-z0-9._-]*|'') echo "::error::invalid redis_version '$REDIS_VERSION'"; exit 1 ;; esac
+          if ! pkg-config --exists openssl; then
+            sudo apt-get update -q && sudo apt-get install -y -q libssl-dev
+          fi
+          curl -fsSL --retry 3 -o redis.tar.gz "https://github.com/redis/redis/archive/refs/tags/$REDIS_VERSION.tar.gz"
+          mkdir -p "$RUNNER_TEMP/redis"
+          tar -xzf redis.tar.gz -C "$RUNNER_TEMP/redis" --strip-components=1
+          bash scripts/apply-patches.sh "$RUNNER_TEMP/redis"
+          make -C "$RUNNER_TEMP/redis" -j"$(nproc)" BUILD_TLS=yes OPTIMIZATION=-O2 >"$RUNNER_TEMP/make.log" 2>&1 ||
+            { tail -n 80 "$RUNNER_TEMP/make.log"; echo "::error::make failed"; exit 1; }
+          "$RUNNER_TEMP/redis/src/redis-server" --version
+          echo "REDIS_SERVER_PATH=$RUNNER_TEMP/redis/src/redis-server" >>"$GITHUB_ENV"
+          echo "REDIS_TLS_SERVER_PATH=$RUNNER_TEMP/redis/src/redis-server" >>"$GITHUB_ENV"
+
+      - name: Set up .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Wrapper unit tests with a real redis-server
+        env:
+          REDIS_VERSION: ${{ inputs.redis_version }}
+        run: |
+          set -euo pipefail
+          rc=0
+          dotnet run --project tests/RedisService.Tests -c Release 2>&1 | tee "$RUNNER_TEMP/tests.log" || rc=$?
+          {
+            echo "### Wrapper tests against Redis $REDIS_VERSION on Linux"
+            echo
+            echo '```text'
+            sed -E 's/\x1b\[[0-9;]*m//g' "$RUNNER_TEMP/tests.log" | grep -E 'Total:|\[SKIP\]|\[FAIL\]' | tail -n 20 || true
+            echo '```'
+          } >>"$GITHUB_STEP_SUMMARY"
+          [ "$rc" = 0 ] || { echo "::error::wrapper unit tests failed (exit $rc)"; exit "$rc"; }
+          # The whole point of this job: the real-server tests must not skip for lack of a server.
+          if grep -q -e 'REDIS_SERVER_PATH is not set' -e 'REDIS_TLS_SERVER_PATH is not set' "$RUNNER_TEMP/tests.log"; then
+            echo "::error::real-server tests were skipped although REDIS_SERVER_PATH / REDIS_TLS_SERVER_PATH are set"
+            exit 1
+          fi

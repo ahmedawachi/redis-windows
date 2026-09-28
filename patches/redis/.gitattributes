@@ -1,0 +1,4 @@
+# Patches must reach "git apply" / "patch" byte for byte: never convert line
+# endings (a CRLF checkout makes every hunk fail). "diff" keeps them readable
+# in git diff and pull requests.
+*.patch -text diff
