@@ -113,7 +113,10 @@ apply_patch() {
 for p in "$patch_dir"/[0-9][0-9][0-9][0-9]-*.patch; do
     [ -e "$p" ] || die "no NNNN-*.patch files in $patch_dir"
     name=$(basename "$p")
-    if grep -q "$(printf '\r')" "$p"; then
+    # Count CR bytes with tr: "$(printf '\r')" is an empty pattern under Cygwin/MSYS2 bash with igncr set
+    # (it strips CRs from command substitution), and an empty grep pattern matches every file.
+    cr_bytes=$(LC_ALL=C tr -dc '\r' <"$p" | wc -c)
+    if [ "$((cr_bytes + 0))" -gt 0 ]; then
         die "$name has CRLF line endings; it was checked out with line-ending conversion (patches/redis/.gitattributes marks *.patch -text)"
     fi
     [ -n "$(patched_files "$p")" ] || die "$name names no files (not a unified diff with b/ paths?)"
