@@ -221,8 +221,9 @@ try {
     } else {
         New-Item -ItemType Directory -Force -Path $work | Out-Null
         $bareOut = Join-Path $work 'no-args.out'
+        $bareErr = Join-Path $work 'no-args.err'
         $bare = Start-Process -FilePath $exe -WorkingDirectory $PackageDir -PassThru -NoNewWindow `
-            -RedirectStandardOutput $bareOut -RedirectStandardError (Join-Path $work 'no-args.err')
+            -RedirectStandardOutput $bareOut -RedirectStandardError $bareErr
         $null = $bare.Handle   # keeps ExitCode readable after the process exits
         try {
             # The bundled redis.conf has no password: call redis-cli without REDISCLI_AUTH.
@@ -231,10 +232,19 @@ try {
             & $cli -h 127.0.0.1 -p 6379 SHUTDOWN NOSAVE 2>&1 | Out-Null
             Assert-True ($bare.WaitForExit(30000)) 'a client SHUTDOWN ends the no-argument run (restart policy on-crash)'
             Assert-True ($bare.ExitCode -eq 0) "the no-argument run exits 0 after a clean SHUTDOWN (got $($bare.ExitCode))"
+        } catch {
+            # Independent of the service tests below: record it and carry on, so one run reports every problem.
+            $failures.Add("no-argument run: $_")
+            Write-Host "FAILED (the service tests still run): $_" -ForegroundColor Red
+            Write-Host ('--- the no-argument run ' + $(if ($bare.HasExited) { "exited with code $($bare.ExitCode)" } else { 'was still running' }))
+            foreach ($f in @($bareOut, $bareErr)) {
+                if (Test-Path -LiteralPath $f) { Write-Host "--- $f"; Get-Content -LiteralPath $f -Tail 80 | ForEach-Object { Write-Host "  $_" } }
+            }
         } finally {
             if (-not $bare.HasExited) { $bare.Kill($true) }
         }
-        Wait-Until { Test-PortFree 6379 } 10 'port 6379 is free again'
+        try { Wait-Until { Test-PortFree 6379 } 10 'port 6379 is free again' }
+        catch { $failures.Add("port 6379 after the no-argument run: $_"); Write-Host "FAILED: $_" -ForegroundColor Red }
     }
 
     Write-Step 'Install'
