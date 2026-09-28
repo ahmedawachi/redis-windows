@@ -104,7 +104,7 @@ The `select()` event loop on these runtimes overwrites memory once a descriptor 
 | Area | State |
 |---|---|
 | `-O2` build on MSYS2 and Cygwin | 🧪 awaiting the first Windows CI run |
-| Redis patch series (8 patches) | ✅ applies to 8.10.2 and 8.10.1 · ✅ Redis test suites pass · 🧪 Windows-only paths |
+| Redis patch series (9 patches) | ✅ applies to 8.10.2 and 8.10.1 · ✅ Redis test suites pass · 🧪 Windows-only paths |
 | Self-healing service | ✅ 246 unit tests, 0 failures · 🧪 Windows service integration test |
 | Benchmarks, stock vs. fork | 🧪 results land here after the first run |
 

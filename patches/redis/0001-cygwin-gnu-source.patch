@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: ahmedawachi <121810925+ahmedawachi@users.noreply.github.com>
 Date: Mon, 28 Sep 2026 09:29:28 +0300
-Subject: [PATCH 1/8] cygwin: expose dladdr()/Dl_info in debug.c without
+Subject: [PATCH 1/9] cygwin: expose dladdr()/Dl_info in debug.c without
  editing system headers
 
 What: on __CYGWIN__ builds (Cygwin and MSYS2), debug.c now sets

@@ -5,9 +5,9 @@ files (`-p1`, relative to the Redis source root). The CI applies them in lexical
 order to the extracted upstream tarball before it builds.
 
 - **Patch base:** Redis 8.10.2 (a security release). The series also applies to
-  8.10.1, the production version, with no fuzz (checked for all eight patches).
+  8.10.1, the production version, with no fuzz (checked for all nine patches).
 - **Scope:** 0001-0004 and 0008 are limited to Cygwin/MSYS2 builds, or to the
-  select() event-loop backend. The others build on every platform, and change nothing
+  select() event-loop backend, and 0009 to Cygwin builds. The others build on every platform, and change nothing
   there unless you turn them on:
   - 0005 is a build-flag fix.
   - 0006 adds `reply-node-max-bytes`, which splits large replies over smaller
@@ -55,6 +55,7 @@ scripts/apply-patches.sh <redis-source-dir>
 | 0006-reply-node-cap | all; on by default only on Cygwin/MSYS2 | new hidden config `reply-node-max-bytes`; a large reply uses reply buffers of at most 256 KB |
 | 0007-soft-oom-client-buffers | all; on by default only on Cygwin/MSYS2 | new config `oom-soft-client-buffers`; new INFO stats field `client_oom_disconnections`; `-OOM` error and WARNING log lines; new `DEBUG SET-ALLOC-FAIL-THRESHOLD` |
 | 0008-cygwin-absolute-drive-paths | Cygwin/MSYS2 | `redis-server.exe C:/path/redis.conf` works: Windows drive paths count as absolute |
+| 0009-cygwin-noacl-working-dir | Cygwin (not MSYS2) | files in `dir` keep the ACL of their folder, as on MSYS2, so a virtual service account can save; one WARNING log line if that cannot be arranged |
 
 Each patch's commit message has the full what, why and risk.
 
@@ -347,6 +348,29 @@ Each patch's commit message has the full what, why and risk.
 - **How to test:** on Windows, `redis-server.exe C:/path/to/redis.conf` starts,
   and `CONFIG GET` shows the settings from that file. On other platforms nothing
   changes; the branch is compiled only with `__CYGWIN__`.
+
+### 0009: cygwin-noacl-working-dir
+
+- **What:** on Cygwin builds (MSYS2 already behaves this way), after Redis
+  changes into `dir`, and at start-up for the start-up directory, the working
+  directory is mounted `noacl` for this runtime: for a drive path by setting the
+  flags of the cygdrive prefix, for a path under the runtime's own root by a
+  mount of that directory. A runtime with an `/etc/fstab` is left alone.
+- **Why:** Cygwin emulates POSIX permissions with ACLs on every path it resolves
+  through its mount table, which includes each file Redis opens relative to
+  `dir` (`temp-<pid>.rdb`, `dump.rdb`, `appendonlydir/`). For an account it
+  cannot map back to a SID, such as a virtual service account
+  (`NT SERVICE\<name>`), it writes an ACL for the placeholder SID `S-1-99-0`.
+  The service then has no Delete right on its own temporary file, so the rename
+  to `dump.rdb` fails with `Permission denied`, and AOF cannot create its files.
+  Granting the folder Full Control fixes the rename but not AOF; `noacl` fixes
+  both, and it is the MSYS2 default.
+- **How to test:** install the Cygwin package as a service with
+  `--virtual-account`, `SET` a key, then `SAVE`, `BGSAVE` and
+  `CONFIG SET appendonly yes`: all succeed and `dump.rdb` is written. Without
+  the patch the log says `Error moving temp DB file ... Permission denied`.
+  `ci/probe-va-save.ps1` runs this in four layouts. Elsewhere nothing changes; the
+  code is compiled only with `__CYGWIN__` and without `__MSYS__`.
 
 ## Testing
 

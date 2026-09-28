@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: ahmedawachi <121810925+ahmedawachi@users.noreply.github.com>
 Date: Mon, 28 Sep 2026 10:14:48 +0300
-Subject: [PATCH 7/8] networking: close only the client when its buffer cannot
+Subject: [PATCH 7/9] networking: close only the client when its buffer cannot
  be allocated
 
 What: new config oom-soft-client-buffers (yes|no, MODIFIABLE). Default

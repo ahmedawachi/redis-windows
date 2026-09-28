@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: ahmedawachi <121810925+ahmedawachi@users.noreply.github.com>
 Date: Mon, 28 Sep 2026 18:07:52 +0300
-Subject: [PATCH 8/8] cygwin: treat Windows drive paths as absolute in
+Subject: [PATCH 8/9] cygwin: treat Windows drive paths as absolute in
  getAbsolutePath()
 
 What: on Cygwin/MSYS2 builds, getAbsolutePath() returns a path that

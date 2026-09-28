@@ -1,0 +1,116 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: ahmedawachi <121810925+ahmedawachi@users.noreply.github.com>
+Date: Mon, 28 Sep 2026 18:52:21 +0300
+Subject: [PATCH 9/9] cygwin: mount the working directory without POSIX ACL
+ emulation
+
+Cygwin writes a POSIX-emulating ACL on every file it creates through its
+mount table, which includes each file Redis opens relative to "dir". For
+an account Cygwin cannot map back to a SID, such as a virtual service
+account (NT SERVICE\<name>), that ACL grants nobody: the RDB rename fails
+with EACCES and AOF cannot create its files. Mount the working directory
+noacl, as MSYS2 does by default, so files keep the ACL they inherit from
+the folder. A runtime with an /etc/fstab is left alone.
+---
+ src/config.c | 43 +++++++++++++++++++++++++++++++++++++++++++
+ src/server.c |  4 ++++
+ src/server.h |  3 +++
+ 3 files changed, 50 insertions(+)
+
+diff --git a/src/config.c b/src/config.c
+index 7f718cc..1e08d58 100644
+--- a/src/config.c
++++ b/src/config.c
+@@ -25,6 +25,10 @@
+ #include <locale.h>
+ #include <ctype.h>
+ #include <arpa/inet.h>
++#if defined(__CYGWIN__) && !defined(__MSYS__)
++#include <sys/cygwin.h>
++#include <sys/mount.h>
++#endif
+ 
+ /*-----------------------------------------------------------------------------
+  * Config file name-value maps.
+@@ -3032,6 +3036,42 @@ static int applyTLSPort(const char **err) {
+     return 1;
+ }
+ 
++#if defined(__CYGWIN__) && !defined(__MSYS__)
++/* Cygwin emulates POSIX permissions with ACLs on the paths it resolves through
++ * its mount table, and every file Redis opens relative to "dir" is one. For an
++ * account Cygwin cannot map back to a SID, such as a virtual service account
++ * (NT SERVICE\<name>), that ACL grants nobody, so renaming the temporary RDB and
++ * AOF files fails with "Permission denied". Mount the working directory noacl,
++ * as MSYS2 does by default, so its files keep the ACL inherited from the folder.
++ * A runtime with an /etc/fstab has its mounts chosen on purpose: left alone. */
++void cygwinMountWorkingDirWithoutAcls(void) {
++    static char done[PATH_MAX];
++    char cwd[PATH_MAX], native[PATH_MAX];
++    char user[PATH_MAX] = "", sysprefix[PATH_MAX] = "", uflags[16] = "", sflags[16] = "";
++    int res;
++
++    if (getcwd(cwd, sizeof(cwd)) == NULL || strcmp(cwd, done) == 0) return;
++    snprintf(done, sizeof(done), "%s", cwd);
++    if (access("/etc/fstab", F_OK) == 0) return;
++
++    cygwin_internal(CW_GET_CYGDRIVE_INFO, user, sysprefix, uflags, sflags);
++    size_t len = strlen(user);
++    if (len > 1 && strncmp(cwd, user, len) == 0 && cwd[len] == '/') {
++        /* Drive paths take the flags of the cygdrive prefix, never of a mount point. */
++        res = mount("none", user, MOUNT_CYGDRIVE | MOUNT_NOPOSIX | MOUNT_NOACL |
++                                  (strcmp(uflags, "textmode") == 0 ? MOUNT_TEXT : 0));
++    } else if (cygwin_conv_path(CCP_POSIX_TO_WIN_A | CCP_ABSOLUTE, cwd, native, sizeof(native)) == 0) {
++        res = mount(native, cwd, MOUNT_NOACL);
++    } else {
++        res = -1;
++    }
++    if (res == -1)
++        serverLog(LL_WARNING, "Could not mount the working directory %s without POSIX ACL emulation: %s. "
++                  "An account Cygwin cannot map, such as a virtual service account, may be unable to save there.",
++                  cwd, strerror(errno));
++}
++#endif
++
+ static int setConfigDirOption(standardConfig *config, sds *argv, int argc, const char **err) {
+     UNUSED(config);
+     if (argc != 1) {
+@@ -3042,6 +3082,9 @@ static int setConfigDirOption(standardConfig *config, sds *argv, int argc, const
+         *err = strerror(errno);
+         return 0;
+     }
++#if defined(__CYGWIN__) && !defined(__MSYS__)
++    cygwinMountWorkingDirWithoutAcls();
++#endif
+     return 1;
+ }
+ 
+diff --git a/src/server.c b/src/server.c
+index 3d94037..de4ca67 100644
+--- a/src/server.c
++++ b/src/server.c
+@@ -8355,6 +8355,10 @@ int main(int argc, char **argv) {
+         sdsfree(options);
+     }
+     if (server.sentinel_mode) sentinelCheckConfigFile();
++#if defined(__CYGWIN__) && !defined(__MSYS__)
++    /* Also when no "dir" is configured: files are then written to the start-up directory. */
++    cygwinMountWorkingDirWithoutAcls();
++#endif
+ 
+     /* Reserve dedicated used_memory slots for main + IO threads (single-writer
+      * fast path). See zmalloc_reserve_thread_slots(). */
+diff --git a/src/server.h b/src/server.h
+index f3276a7..c022f33 100644
+--- a/src/server.h
++++ b/src/server.h
+@@ -4218,6 +4218,9 @@ typedef enum {
+ } configType;
+ 
+ void loadServerConfig(char *filename, char config_from_stdin, char *options);
++#if defined(__CYGWIN__) && !defined(__MSYS__)
++void cygwinMountWorkingDirWithoutAcls(void);
++#endif
+ void appendServerSaveParams(time_t seconds, int changes);
+ void resetServerSaveParams(void);
+ struct rewriteConfigState; /* Forward declaration to export API. */

@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: ahmedawachi <121810925+ahmedawachi@users.noreply.github.com>
 Date: Mon, 28 Sep 2026 09:35:30 +0300
-Subject: [PATCH 5/8] deps: build xxhash with an optimization level
+Subject: [PATCH 5/9] deps: build xxhash with an optimization level
 
 What: deps/Makefile now passes an explicit level to xxhash: the
 OPTIMIZATION given on the make command line (for example -O2, or -O0 for a
