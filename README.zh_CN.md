@@ -1,3 +1,5 @@
+> **Maintained fork:** see [the English README](README.md#why-this-fork) for what differs from upstream and the 60-second setup; the Chinese text below is the unchanged upstream documentation.
+
 # Redis for Windows
 
 [![Build](https://github.com/redis-windows/redis-windows/actions/workflows/build-redis.yml/badge.svg)](https://github.com/redis-windows/redis-windows/actions)
