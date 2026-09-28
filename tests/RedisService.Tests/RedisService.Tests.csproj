@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<TargetFramework>net10.0</TargetFramework>
+		<OutputType>Exe</OutputType>
+		<Nullable>enable</Nullable>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<IsPackable>false</IsPackable>
+		<!-- Unix-only calls are guarded by Assert.SkipWhen(OperatingSystem.IsWindows()) in the tests that use them. -->
+		<NoWarn>$(NoWarn);CA1416</NoWarn>
+		<InvariantGlobalization>true</InvariantGlobalization>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="xunit.v3" Version="3.2.2" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<Using Include="Xunit" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="../../RedisService.csproj" AdditionalProperties="RedisServicePortableBuild=true" />
+	</ItemGroup>
+
+</Project>

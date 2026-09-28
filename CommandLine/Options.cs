@@ -1,168 +1,118 @@
 namespace RedisService.CommandLine;
 
-/// <summary>
-/// 命令类型
-/// </summary>
-public enum CommandType
+/// <summary>What the wrapper does when redis-server exits without being asked to.</summary>
+public enum RestartPolicy
 {
-    /// <summary>
-    /// 显示帮助
-    /// </summary>
-    Help,
+    /// <summary>Restart after crashes and hangs; a clean exit nobody requested (e.g. a client SHUTDOWN) stops the service.</summary>
+    OnCrash,
 
-    /// <summary>
-    /// 显示版本
-    /// </summary>
-    Version,
+    /// <summary>Restart after every unrequested exit, including a clean one.</summary>
+    Always,
 
-    /// <summary>
-    /// 安装服务
-    /// </summary>
-    Install,
-
-    /// <summary>
-    /// 卸载服务
-    /// </summary>
-    Uninstall,
-
-    /// <summary>
-    /// 运行 Redis
-    /// </summary>
-    Run
+    /// <summary>Never restart. A crash stops the service with exit code 1067 so SCM recovery actions can run.</summary>
+    Never,
 }
 
-/// <summary>
-/// 命令行解析结果基类
-/// </summary>
+public enum CommandType
+{
+    Help,
+    Version,
+    Install,
+    Uninstall,
+    Run,
+}
+
 public abstract class CommandResult(CommandType type)
 {
     public CommandType Type { get; } = type;
 }
 
-/// <summary>
-/// 帮助命令结果
-/// </summary>
-public class HelpCommand : CommandResult
-{
-    public HelpCommand() : base(CommandType.Help) { }
-}
+public sealed class HelpCommand() : CommandResult(CommandType.Help);
 
-/// <summary>
-/// 版本命令结果
-/// </summary>
-public class VersionCommand : CommandResult
-{
-    public VersionCommand() : base(CommandType.Version) { }
-}
+public sealed class VersionCommand() : CommandResult(CommandType.Version);
 
-/// <summary>
-/// 运行选项
-/// </summary>
+/// <summary>Options that control how redis-server is launched and supervised.</summary>
 public class RunOptions
 {
-    /// <summary>
-    /// 配置文件路径
-    /// </summary>
-    public string ConfigFilePath { get; set; } = "redis.conf";
+    /// <summary>Config file as typed by the user; null means "redis.conf next to RedisService.exe".</summary>
+    public string? ConfigFilePath { get; set; }
 
-    /// <summary>
-    /// Redis 端口
-    /// </summary>
     public int? Port { get; set; }
 
-    /// <summary>
-    /// 数据目录
-    /// </summary>
     public string? DataDirectory { get; set; }
 
-    /// <summary>
-    /// 日志级别
-    /// </summary>
     public string? LogLevel { get; set; }
 
-    /// <summary>
-    /// 前台运行模式
-    /// </summary>
+    /// <summary>Overrides the Redis <c>logfile</c> setting.</summary>
+    public string? LogFile { get; set; }
+
     public bool Foreground { get; set; }
 
-    /// <summary>
-    /// 作为 Windows 服务运行
-    /// </summary>
-    public bool AsService { get; set; }
-}
-
-/// <summary>
-/// 运行命令结果
-/// </summary>
-public class RunCommand : CommandResult
-{
-    public RunOptions Options { get; }
-
-    public RunCommand(RunOptions options) : base(CommandType.Run)
-    {
-        Options = options;
-    }
-}
-
-/// <summary>
-/// 安装选项
-/// </summary>
-public class InstallOptions : RunOptions
-{
-    /// <summary>
-    /// 服务名称
-    /// </summary>
+    /// <summary>Service name; also the Event Log source and the registry key holding stored arguments.</summary>
     public string ServiceName { get; set; } = "Redis";
 
-    /// <summary>
-    /// 服务显示名称
-    /// </summary>
+    public bool ServiceNameSpecified { get; set; }
+
+    /// <summary>Path of redis-server; null means redis-server(.exe) next to RedisService.exe.</summary>
+    public string? RedisServerPath { get; set; }
+
+    public RestartPolicy RestartPolicy { get; set; } = RestartPolicy.OnCrash;
+
+    public TimeSpan StopTimeout { get; set; } = TimeSpan.FromSeconds(120);
+
+    public TimeSpan StartTimeout { get; set; } = TimeSpan.FromSeconds(120);
+
+    /// <summary>Interval between liveness probes; zero disables the probe.</summary>
+    public TimeSpan HealthInterval { get; set; } = TimeSpan.FromSeconds(5);
+
+    public int HealthFailures { get; set; } = 12;
+
+    public int MaxRestarts { get; set; } = 5;
+
+    public TimeSpan RestartWindow { get; set; } = TimeSpan.FromMinutes(10);
+
+    public string? AuthUser { get; set; }
+
+    public string? AuthPasswordFile { get; set; }
+
+    /// <summary>Send SHUTDOWN FORCE when SHUTDOWN fails (the final save failed). Data since the last save is then lost.</summary>
+    public bool ShutdownForce { get; set; }
+}
+
+public sealed class RunCommand(RunOptions options) : CommandResult(CommandType.Run)
+{
+    public RunOptions Options { get; } = options;
+}
+
+public sealed class InstallOptions : RunOptions
+{
     public string? DisplayName { get; set; }
 
-    /// <summary>
-    /// 服务描述
-    /// </summary>
     public string? Description { get; set; }
 
-    /// <summary>
-    /// 启动类型: auto, manual, disabled
-    /// </summary>
+    /// <summary>auto, manual or disabled.</summary>
     public string StartMode { get; set; } = "auto";
+
+    public bool DelayedStart { get; set; }
+
+    /// <summary>Run as the virtual account NT SERVICE\&lt;name&gt; instead of LocalSystem.</summary>
+    public bool VirtualAccount { get; set; }
 }
 
-/// <summary>
-/// 安装命令结果
-/// </summary>
-public class InstallCommand : CommandResult
+public sealed class InstallCommand(InstallOptions options) : CommandResult(CommandType.Install)
 {
-    public InstallOptions Options { get; }
-
-    public InstallCommand(InstallOptions options) : base(CommandType.Install)
-    {
-        Options = options;
-    }
+    public InstallOptions Options { get; } = options;
 }
 
-/// <summary>
-/// 卸载选项
-/// </summary>
-public class UninstallOptions
+public sealed class UninstallOptions
 {
-    /// <summary>
-    /// 服务名称
-    /// </summary>
     public string ServiceName { get; set; } = "Redis";
+
+    /// <summary>How long to wait for the running service to stop before deleting it.</summary>
+    public TimeSpan StopTimeout { get; set; } = TimeSpan.FromSeconds(150);
 }
 
-/// <summary>
-/// 卸载命令结果
-/// </summary>
-public class UninstallCommand : CommandResult
+public sealed class UninstallCommand(UninstallOptions options) : CommandResult(CommandType.Uninstall)
 {
-    public UninstallOptions Options { get; }
-
-    public UninstallCommand(UninstallOptions options) : base(CommandType.Uninstall)
-    {
-        Options = options;
-    }
+    public UninstallOptions Options { get; } = options;
 }

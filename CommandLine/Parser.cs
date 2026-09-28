@@ -1,201 +1,309 @@
+using System.Globalization;
+
 namespace RedisService.CommandLine;
 
-/// <summary>
-/// 命令行解析器
-/// </summary>
+/// <summary>Invalid command line. Main prints the message and exits with code 2.</summary>
+public sealed class CommandLineException(string message) : Exception(message)
+{
+    public const int ExitCode = 2;
+}
+
+/// <summary>Strict parser: unknown options and invalid values are errors, never silently ignored.</summary>
 public static class CommandLineParser
 {
-    /// <summary>
-    /// 解析命令行参数
-    /// </summary>
+    [Flags]
+    private enum Scope
+    {
+        Run = 1,
+        Install = 2,
+        Uninstall = 4,
+        RunOrInstall = Run | Install,
+        All = Run | Install | Uninstall,
+    }
+
+    private sealed record OptionSpec(string[] Names, bool TakesValue, Scope Scope, string ValueName, string Help);
+
+    private static readonly OptionSpec[] Specs =
+    [
+        new(["-c", "--config"], true, Scope.RunOrInstall, "FILE", "Redis config file (default: redis.conf next to RedisService.exe)"),
+        new(["--port"], true, Scope.RunOrInstall, "PORT", "Override the Redis port (0-65535)"),
+        new(["--dir"], true, Scope.RunOrInstall, "DIR", "Override the Redis data directory"),
+        new(["--loglevel"], true, Scope.RunOrInstall, "LEVEL", "Override the Redis log level (debug, verbose, notice, warning, nothing)"),
+        new(["--logfile"], true, Scope.RunOrInstall, "FILE", "Override the Redis logfile"),
+        new(["-f", "--foreground"], false, Scope.Run, "", "Run in the console instead of as a service"),
+        new(["--service-name"], true, Scope.All, "NAME", "Service name (default: Redis)"),
+        new(["--display-name"], true, Scope.Install, "NAME", "Service display name"),
+        new(["--description"], true, Scope.Install, "TEXT", "Service description"),
+        new(["--start-mode"], true, Scope.Install, "MODE", "Startup type: auto, manual, disabled (default: auto)"),
+        new(["--delayed-start"], false, Scope.Install, "", "Use delayed automatic start"),
+        new(["--virtual-account"], false, Scope.Install, "", "Run as NT SERVICE\\<name> instead of LocalSystem and grant it access to the data, log and config folders"),
+        new(["--restart-policy"], true, Scope.RunOrInstall, "POLICY", "on-crash (default), always or never"),
+        new(["--stop-timeout"], true, Scope.All, "TIME", "Time allowed for a graceful shutdown (default: 120s)"),
+        new(["--start-timeout"], true, Scope.RunOrInstall, "TIME", "Time allowed for redis-server to answer PING after start (default: 120s)"),
+        new(["--health-interval"], true, Scope.RunOrInstall, "TIME", "Liveness probe interval, 0 disables (default: 5s)"),
+        new(["--health-failures"], true, Scope.RunOrInstall, "N", "Consecutive missed probes before a restart (default: 12)"),
+        new(["--max-restarts"], true, Scope.RunOrInstall, "N", "Crashes allowed within --restart-window before giving up (default: 5)"),
+        new(["--restart-window"], true, Scope.RunOrInstall, "TIME", "Window for --max-restarts (default: 10m)"),
+        new(["--auth-user"], true, Scope.RunOrInstall, "USER", "ACL user for the wrapper's own connections (default: default user)"),
+        new(["--auth-password-file"], true, Scope.RunOrInstall, "FILE", "File holding the password for the wrapper's own connections (default: requirepass)"),
+        new(["--shutdown-force"], false, Scope.RunOrInstall, "", "If SHUTDOWN fails because the final save failed, send SHUTDOWN FORCE"),
+        new(["--redis-server"], true, Scope.RunOrInstall, "FILE", "Path of redis-server (default: next to RedisService.exe)"),
+    ];
+
     public static CommandResult Parse(string[] args)
     {
+        // No arguments: under the Service Control Manager (a service created without arguments) run as the service,
+        // otherwise (a double-click in Explorer) in this window, with redis.conf from this folder.
         if (args.Length == 0)
-            return new HelpCommand();
+            return new RunCommand(new RunOptions());
 
-        // 检查帮助和版本标志
-        if (HasFlag(args, "-h", "--help"))
+        // Anywhere on the line, for compatibility with the previous parser.
+        if (args.Any(a => a is "-h" or "--help" or "/?"))
             return new HelpCommand();
-
-        if (HasFlag(args, "-v", "--version"))
+        if (args.Any(a => a is "-v" or "--version"))
             return new VersionCommand();
 
-        // 解析命令
-        var command = args[0].ToLowerInvariant();
-
-        return command switch
+        var first = args[0].ToLowerInvariant();
+        return first switch
         {
-            "install" => ParseInstallCommand(args),
-            "uninstall" => ParseUninstallCommand(args),
-            "run" => ParseRunCommand(args, 1),
-            _ => ParseRunCommand(args, 0) // 默认为 run 命令
+            "install" => new InstallCommand(ParseInstall(args.AsSpan(1))),
+            "uninstall" => new UninstallCommand(ParseUninstall(args.AsSpan(1))),
+            "run" => new RunCommand(ParseRun(args.AsSpan(1))),
+            _ when first.StartsWith('-') => new RunCommand(ParseRun(args)),
+            _ => throw new CommandLineException($"Unknown command '{args[0]}'. Expected install, uninstall or run."),
         };
     }
 
-    private static InstallCommand ParseInstallCommand(string[] args)
-    {
-        var options = new InstallOptions();
-        ParseRunOptions(args, 1, options);
-
-        // 解析安装特有选项
-        for (int i = 1; i < args.Length; i++)
-        {
-            switch (args[i].ToLowerInvariant())
-            {
-                case "--service-name":
-                    if (i + 1 < args.Length)
-                    {
-                        options.ServiceName = args[++i];
-                    }
-                    break;
-
-                case "--display-name":
-                    if (i + 1 < args.Length)
-                    {
-                        options.DisplayName = args[++i];
-                    }
-                    break;
-
-                case "--description":
-                    if (i + 1 < args.Length)
-                    {
-                        options.Description = args[++i];
-                    }
-                    break;
-
-                case "--start-mode":
-                    if (i + 1 < args.Length)
-                    {
-                        options.StartMode = args[++i].ToLowerInvariant();
-                    }
-                    break;
-            }
-        }
-
-        return new InstallCommand(options);
-    }
-
-    private static UninstallCommand ParseUninstallCommand(string[] args)
-    {
-        var options = new UninstallOptions();
-
-        for (int i = 1; i < args.Length; i++)
-        {
-            switch (args[i].ToLowerInvariant())
-            {
-                case "--service-name":
-                    if (i + 1 < args.Length)
-                    {
-                        options.ServiceName = args[++i];
-                    }
-                    break;
-            }
-        }
-
-        return new UninstallCommand(options);
-    }
-
-    private static RunCommand ParseRunCommand(string[] args, int startIndex)
+    public static RunOptions ParseRun(ReadOnlySpan<string> args)
     {
         var options = new RunOptions();
-        ParseRunOptions(args, startIndex, options);
-        options.AsService = !options.Foreground;
-        return new RunCommand(options);
+        Apply(args, Scope.Run, (name, value) => ApplyRunOption(options, name, value) ? true : throw Unreachable(name));
+        return options;
     }
 
-    private static void ParseRunOptions(string[] args, int startIndex, RunOptions options)
+    /// <summary>Applies arguments on top of existing options (used to layer command-line flags over stored service parameters).</summary>
+    public static void ApplyRun(RunOptions options, ReadOnlySpan<string> args) =>
+        Apply(args, Scope.Run, (name, value) => ApplyRunOption(options, name, value) ? true : throw Unreachable(name));
+
+    private static InstallOptions ParseInstall(ReadOnlySpan<string> args)
     {
-        for (int i = startIndex; i < args.Length; i++)
+        var options = new InstallOptions();
+        Apply(args, Scope.Install, (name, value) =>
         {
-            switch (args[i].ToLowerInvariant())
+            if (ApplyRunOption(options, name, value))
+                return true;
+            switch (name)
             {
-                case "-c":
-                case "--config":
-                    if (i + 1 < args.Length)
+                case "--display-name": options.DisplayName = RequireNonEmpty(name, value); return true;
+                case "--description": options.Description = value; return true;
+                case "--start-mode":
+                    options.StartMode = value!.ToLowerInvariant() switch
                     {
-                        options.ConfigFilePath = args[++i];
-                    }
-                    break;
-
-                case "--port":
-                    if (i + 1 < args.Length && int.TryParse(args[i + 1], out var port))
-                    {
-                        options.Port = port;
-                        i++;
-                    }
-                    break;
-
-                case "--dir":
-                    if (i + 1 < args.Length)
-                    {
-                        options.DataDirectory = args[++i];
-                    }
-                    break;
-
-                case "--loglevel":
-                    if (i + 1 < args.Length)
-                    {
-                        options.LogLevel = args[++i];
-                    }
-                    break;
-
-                case "-f":
-                case "--foreground":
-                    options.Foreground = true;
-                    break;
+                        "auto" or "manual" or "disabled" => value.ToLowerInvariant(),
+                        _ => throw new CommandLineException($"Invalid value '{value}' for --start-mode. Expected auto, manual or disabled."),
+                    };
+                    return true;
+                case "--delayed-start": options.DelayedStart = true; return true;
+                case "--virtual-account": options.VirtualAccount = true; return true;
+                default: throw Unreachable(name);
             }
+        });
+        if (options.DelayedStart && options.StartMode != "auto")
+            throw new CommandLineException("--delayed-start requires --start-mode auto.");
+        return options;
+    }
+
+    private static UninstallOptions ParseUninstall(ReadOnlySpan<string> args)
+    {
+        var options = new UninstallOptions();
+        Apply(args, Scope.Uninstall, (name, value) =>
+        {
+            switch (name)
+            {
+                case "--service-name": options.ServiceName = ParseServiceName(value!); return true;
+                case "--stop-timeout": options.StopTimeout = ParseDuration(name, value!, allowZero: false); return true;
+                default: throw Unreachable(name);
+            }
+        });
+        return options;
+    }
+
+    private static bool ApplyRunOption(RunOptions o, string name, string? value)
+    {
+        switch (name)
+        {
+            case "-c": o.ConfigFilePath = RequireNonEmpty(name, value); return true;
+            case "--port": o.Port = ParseInt(name, value!, 0, 65535); return true;
+            case "--dir": o.DataDirectory = RequireNonEmpty(name, value); return true;
+            case "--loglevel":
+                o.LogLevel = value!.ToLowerInvariant() switch
+                {
+                    "debug" or "verbose" or "notice" or "warning" or "nothing" => value.ToLowerInvariant(),
+                    _ => throw new CommandLineException($"Invalid value '{value}' for --loglevel. Expected debug, verbose, notice, warning or nothing."),
+                };
+                return true;
+            case "--logfile": o.LogFile = RequireNonEmpty(name, value); return true;
+            case "-f": o.Foreground = true; return true;
+            case "--service-name": o.ServiceName = ParseServiceName(value!); o.ServiceNameSpecified = true; return true;
+            case "--restart-policy": o.RestartPolicy = ParseRestartPolicy(value!); return true;
+            case "--stop-timeout": o.StopTimeout = ParseDuration(name, value!, allowZero: false); return true;
+            case "--start-timeout": o.StartTimeout = ParseDuration(name, value!, allowZero: false); return true;
+            case "--health-interval": o.HealthInterval = ParseDuration(name, value!, allowZero: true); return true;
+            case "--health-failures": o.HealthFailures = ParseInt(name, value!, 1, 10_000); return true;
+            case "--max-restarts": o.MaxRestarts = ParseInt(name, value!, 1, 10_000); return true;
+            case "--restart-window": o.RestartWindow = ParseDuration(name, value!, allowZero: false); return true;
+            case "--auth-user": o.AuthUser = RequireNonEmpty(name, value); return true;
+            case "--auth-password-file": o.AuthPasswordFile = RequireNonEmpty(name, value); return true;
+            case "--shutdown-force": o.ShutdownForce = true; return true;
+            case "--redis-server": o.RedisServerPath = RequireNonEmpty(name, value); return true;
+            default: return false;
         }
     }
 
-    private static bool HasFlag(string[] args, params string[] flags)
+    private static void Apply(ReadOnlySpan<string> args, Scope scope, Func<string, string?, bool> apply)
     {
-        return args.Any(arg => flags.Contains(arg, StringComparer.OrdinalIgnoreCase));
+        for (var i = 0; i < args.Length; i++)
+        {
+            var raw = args[i];
+            string? inlineValue = null;
+            var nameText = raw;
+            var eq = raw.IndexOf('=');
+            if (raw.StartsWith("--", StringComparison.Ordinal) && eq > 2)
+            {
+                nameText = raw[..eq];
+                inlineValue = raw[(eq + 1)..];
+            }
+
+            var spec = Find(nameText);
+            if (spec is null)
+            {
+                throw raw.StartsWith('-')
+                    ? new CommandLineException($"Unknown option '{nameText}'. Run 'RedisService.exe --help' for the list of options.")
+                    : new CommandLineException($"Unexpected argument '{raw}'. Values must follow an option such as --dir.");
+            }
+            if ((spec.Scope & scope) == 0)
+                throw new CommandLineException($"Option '{nameText}' is not valid for this command.");
+
+            string? value = null;
+            if (spec.TakesValue)
+            {
+                if (inlineValue is not null)
+                    value = inlineValue;
+                else if (i + 1 < args.Length)
+                    value = args[++i];
+                else
+                    throw new CommandLineException($"Option '{nameText}' requires a value ({spec.ValueName}).");
+            }
+            else if (inlineValue is not null)
+            {
+                throw new CommandLineException($"Option '{nameText}' does not take a value.");
+            }
+
+            apply(spec.Names[0], value);
+        }
     }
 
-    /// <summary>
-    /// 显示帮助信息
-    /// </summary>
-    public static void PrintHelp()
+    private static OptionSpec? Find(string name) =>
+        Specs.FirstOrDefault(s => s.Names.Any(n => string.Equals(n, name, StringComparison.OrdinalIgnoreCase)));
+
+    private static Exception Unreachable(string name) => new CommandLineException($"Option '{name}' is not valid for this command.");
+
+    private static string RequireNonEmpty(string name, string? value) =>
+        string.IsNullOrWhiteSpace(value) ? throw new CommandLineException($"Option '{name}' requires a non-empty value.") : value;
+
+    private static string ParseServiceName(string value)
     {
-        Console.WriteLine(@"
-RedisService - Redis Windows Service Wrapper
-
-用法: RedisService [command] [options]
-
-命令:
-  install       安装为 Windows 服务
-  uninstall     卸载 Windows 服务
-  run           运行 Redis（默认命令）
-
-选项:
-  -c, --config <FILE>      Redis 配置文件路径 (默认: redis.conf)
-  --port <PORT>            覆盖 Redis 端口
-  --dir <DIRECTORY>        覆盖 Redis 数据目录
-  --loglevel <LEVEL>       日志级别 (debug, verbose, notice, warning)
-  -f, --foreground         前台运行模式
-  --service-name <NAME>    服务名称 (默认: Redis)
-  --display-name <NAME>    服务显示名称
-  --description <TEXT>     服务描述
-  --start-mode <MODE>      启动类型: auto, manual (默认: auto)
-  -h, --help               显示帮助
-  -v, --version            显示版本
-
-示例:
-  RedisService.exe install -c redis.conf --port 6380
-  RedisService.exe run --foreground
-  RedisService.exe uninstall
-  RedisService.exe uninstall --service-name MyRedis
-");
+        if (string.IsNullOrWhiteSpace(value) || value.Length > 256 || value.IndexOfAny(['/', '\\']) >= 0)
+            throw new CommandLineException($"Invalid service name '{value}'. It must be 1-256 characters and contain no slashes.");
+        return value;
     }
 
-    /// <summary>
-    /// 显示版本信息
-    /// </summary>
-    public static void PrintVersion()
+    public static RestartPolicy ParseRestartPolicy(string value) => value.ToLowerInvariant() switch
+    {
+        "on-crash" or "on-failure" => RestartPolicy.OnCrash,
+        "always" => RestartPolicy.Always,
+        "never" => RestartPolicy.Never,
+        _ => throw new CommandLineException($"Invalid value '{value}' for --restart-policy. Expected on-crash, always or never."),
+    };
+
+    public static string FormatRestartPolicy(RestartPolicy policy) => policy switch
+    {
+        RestartPolicy.Always => "always",
+        RestartPolicy.Never => "never",
+        _ => "on-crash",
+    };
+
+    private static int ParseInt(string name, string value, int min, int max)
+    {
+        if (!int.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out var n) || n < min || n > max)
+            throw new CommandLineException($"Invalid value '{value}' for {name}. Expected a whole number from {min} to {max}.");
+        return n;
+    }
+
+    /// <summary>Parses "90", "90s", "500ms", "2m" or "1h". A bare number is seconds.</summary>
+    public static TimeSpan ParseDuration(string name, string value, bool allowZero)
+    {
+        var text = value.Trim().ToLowerInvariant();
+        (string digits, double scaleMs) = text switch
+        {
+            _ when text.EndsWith("ms", StringComparison.Ordinal) => (text[..^2], 1d),
+            _ when text.EndsWith('s') => (text[..^1], 1000d),
+            _ when text.EndsWith('m') => (text[..^1], 60_000d),
+            _ when text.EndsWith('h') => (text[..^1], 3_600_000d),
+            _ => (text, 1000d),
+        };
+        if (!double.TryParse(digits, NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out var n)
+            || double.IsNaN(n) || n < 0 || n * scaleMs > TimeSpan.FromDays(7).TotalMilliseconds
+            || (!allowZero && n == 0))
+        {
+            throw new CommandLineException(
+                $"Invalid value '{value}' for {name}. Expected a duration such as 90s, 500ms, 2m or 1h{(allowZero ? " (0 disables)" : "")}.");
+        }
+        return TimeSpan.FromMilliseconds(n * scaleMs);
+    }
+
+    public static string FormatDuration(TimeSpan t) =>
+        t.TotalMilliseconds % 1000 == 0
+            ? ((long)t.TotalSeconds).ToString(CultureInfo.InvariantCulture) + "s"
+            : ((long)t.TotalMilliseconds).ToString(CultureInfo.InvariantCulture) + "ms";
+
+    public static void PrintHelp(TextWriter output)
+    {
+        output.WriteLine("RedisService - runs redis-server as a supervised Windows service");
+        output.WriteLine();
+        output.WriteLine("Usage: RedisService.exe [install | uninstall | run] [options]");
+        output.WriteLine();
+        output.WriteLine("With no arguments (for example a double-click), Redis runs in this window using the");
+        output.WriteLine("redis.conf next to RedisService.exe. Press Ctrl+C or close the window to stop it.");
+        output.WriteLine();
+        output.WriteLine("Commands:");
+        output.WriteLine("  install     Install the Windows service (run as administrator)");
+        output.WriteLine("  uninstall   Stop and remove the Windows service (run as administrator)");
+        output.WriteLine("  run         Run Redis (default). Under the Service Control Manager it runs as a service,");
+        output.WriteLine("              otherwise in the console.");
+        output.WriteLine();
+        output.WriteLine("Options:");
+        foreach (var spec in Specs)
+        {
+            var names = string.Join(", ", spec.Names) + (spec.TakesValue ? $" <{spec.ValueName}>" : "");
+            output.WriteLine($"  {names,-34} {spec.Help}");
+        }
+        output.WriteLine($"  {"-h, --help",-34} Show this help");
+        output.WriteLine($"  {"-v, --version",-34} Show the version");
+        output.WriteLine();
+        output.WriteLine("Exit codes: 0 success, 1 failure, 2 invalid command line, 1067 redis-server kept crashing.");
+        output.WriteLine();
+        output.WriteLine("Examples:");
+        output.WriteLine("  RedisService.exe install -c C:\\Redis\\redis.conf --port 6380");
+        output.WriteLine("  RedisService.exe install --virtual-account --delayed-start");
+        output.WriteLine("  RedisService.exe run --foreground");
+        output.WriteLine("  RedisService.exe uninstall --service-name MyRedis");
+    }
+
+    public static void PrintVersion(TextWriter output)
     {
         var version = typeof(CommandLineParser).Assembly.GetName().Version;
-        Console.WriteLine($"RedisService version {version?.ToString() ?? "1.0.0"}");
-        Console.WriteLine("Redis Windows Service Wrapper");
-        Console.WriteLine("https://github.com/redis-windows/redis-windows");
+        output.WriteLine($"RedisService version {version?.ToString(3) ?? "unknown"}");
+        output.WriteLine("Redis Windows service wrapper");
     }
 }

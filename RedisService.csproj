@@ -9,13 +9,31 @@
 		<InvariantGlobalization>true</InvariantGlobalization>
 		<PublishReadyToRun>false</PublishReadyToRun>
 		<PublishTrimmed>true</PublishTrimmed>
-		<RuntimeIdentifier>win-x64</RuntimeIdentifier>
+		<!-- A caller-supplied -r wins; the default keeps "dotnet publish" producing the Windows package.
+		     The test project opts out so it can load the portable code on macOS/Linux. -->
+		<RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == '' and '$(RedisServicePortableBuild)' != 'true'">win-x64</RuntimeIdentifier>
 		<OutputType>exe</OutputType>
 		<PublishDir>.\publish</PublishDir>
-		<Version>2.0.0</Version>
-		<AssemblyVersion>2.0.0.0</AssemblyVersion>
-		<FileVersion>2.0.0.0</FileVersion>
+		<Version>3.0.0</Version>
+		<AssemblyVersion>3.0.0.0</AssemblyVersion>
+		<FileVersion>3.0.0.0</FileVersion>
+		<!-- Trim analysis is part of the build so a regression shows up in "dotnet build", not only at publish time. -->
+		<IsTrimmable>true</IsTrimmable>
+		<EnableTrimAnalyzer>true</EnableTrimAnalyzer>
 	</PropertyGroup>
+
+	<ItemGroup>
+		<!-- The unit-test project lives under tests/ and must never be compiled into the service. -->
+		<Compile Remove="tests/**" />
+		<Content Remove="tests/**" />
+		<None Remove="tests/**" />
+		<EmbeddedResource Remove="tests/**" />
+		<Compile Remove="publish/**;ci/**;patches/**;conf/**;scripts/**" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<InternalsVisibleTo Include="RedisService.Tests" />
+	</ItemGroup>
 
 	<ItemGroup>
 		<PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="10.0.0" />

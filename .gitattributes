@@ -1,0 +1,4 @@
+# Batch files run under cmd.exe: CRLF in every checkout, whatever core.autocrlf says.
+*.bat text eol=crlf
+# Scripts run by bash (MSYS2, Cygwin, Linux, macOS): a CRLF checkout breaks them.
+*.sh text eol=lf
