@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>60-second setup · redis-windows</title>
+<meta name="description" content="Download, unblock, double-click: Redis runs on 127.0.0.1:6379. Then install it as a Windows service with one more double-click.">
+<link rel="canonical" href="https://ahmedawachi.github.io/redis-windows/setup.html">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#0B1020">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="redis-windows">
+<meta property="og:title" content="60-second setup · redis-windows">
+<meta property="og:description" content="No installer, no .NET, no admin rights needed to try it.">
+<meta property="og:url" content="https://ahmedawachi.github.io/redis-windows/setup.html">
+<meta property="og:image" content="https://ahmedawachi.github.io/redis-windows/assets/social-preview.png">
+<meta property="og:image:width" content="1280">
+<meta property="og:image:height" content="640">
+<meta property="og:image:alt" content="redis-windows: Redis for Windows, optimized, self-healing, crash-hardened.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="60-second setup · redis-windows">
+<meta name="twitter:description" content="No installer, no .NET, no admin rights needed to try it.">
+<meta name="twitter:image" content="https://ahmedawachi.github.io/redis-windows/assets/social-preview.png">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="assets/site.css">
+<script src="js/theme.js"></script>
+<script type="module" src="js/toc.js"></script>
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="./"><img src="assets/favicon.svg" alt="" width="28" height="28"><span>redis<span class="accent-text">-windows</span></span></a>
+    <nav id="site-nav" class="nav" aria-label="Main">
+      <a href="setup.html" aria-current="page">Setup</a>
+      <a href="benchmarks.html">Benchmarks</a>
+      <a href="docs.html">Docs</a>
+      <a href="https://github.com/ahmedawachi/redis-windows">GitHub</a>
+    </nav>
+    <button class="icon-btn theme-btn" type="button" data-theme-toggle aria-label="Theme"></button>
+    <button class="icon-btn menu-btn" type="button" data-menu-toggle aria-expanded="false" aria-controls="site-nav" aria-label="Menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+  </div>
+</header>
+
+<main id="main">
+  <section class="page-hero">
+    <div class="wrap">
+      <span class="eyebrow">Setup</span>
+      <h1>60-second setup</h1>
+      <p>No installer, no .NET, no admin rights needed to try it.</p>
+    </div>
+  </section>
+
+  <div class="wrap layout-aside">
+    <nav class="toc" aria-label="On this page">
+      <div class="toc-inner">
+        <h2>On this page</h2>
+        <ol>
+          <li><a href="#try">60-second start</a></li>
+          <li><a href="#service">Run it as a service</a></li>
+          <li><a href="#production">Production installs</a></li>
+          <li><a href="#direct">redis-server.exe directly</a></li>
+          <li><a href="#faq">FAQ</a></li>
+        </ol>
+      </div>
+    </nav>
+
+    <div class="prose">
+      <section id="try" aria-labelledby="try-title">
+        <h2 id="try-title">Up and running in 60 seconds</h2>
+        <ol class="steps">
+          <li>
+            <h3>Download</h3>
+            <p><code class="brk">Redis-&lt;version&gt;-Windows-x64-msys2-with-Service.zip</code> from <a href="https://github.com/ahmedawachi/redis-windows/releases">Releases</a>.</p>
+          </li>
+          <li>
+            <h3>Unblock and unzip</h3>
+            <p>Right-click the zip → <strong>Properties</strong> → tick <strong>Unblock</strong> → <strong>OK</strong>, then extract it anywhere. Unblocking first stops Windows SmartScreen from asking about every file. Avoid folders named <code>bin</code> or <code>usr</code>.</p>
+          </li>
+          <li>
+            <h3>Double-click <code>RedisService.exe</code></h3>
+            <p>A window opens and Redis runs on <code>127.0.0.1:6379</code>. It shows where your data is saved and how to connect. If something is wrong, such as port 6379 already in use, the window stays open and says why.</p>
+          </li>
+          <li>
+            <h3>Try it</h3>
+            <p>Double-click <code>redis-cli.exe</code> and type <code>PING</code> → <code>PONG</code>.</p>
+            <pre class="term"><code><span class="prompt">127.0.0.1:6379&gt;</span> PING
+PONG</code></pre>
+          </li>
+          <li>
+            <h3>Stop it</h3>
+            <p>Press <kbd>Ctrl</kbd>+<kbd>C</kbd>, or close the window. Redis saves and shuts down cleanly. Closing the window gives it a few seconds, which is plenty for a development dataset; use <kbd>Ctrl</kbd>+<kbd>C</kbd> for a big one.</p>
+          </li>
+        </ol>
+        <div class="callout" role="note">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6z"/></svg>
+          <p>Out of the box Redis listens only on this machine (<code>127.0.0.1</code>), so nothing is exposed to the network.</p>
+        </div>
+      </section>
+
+      <section id="service" aria-labelledby="service-title">
+        <h2 id="service-title">Run it in the background, starting with Windows</h2>
+        <p>Move the folder somewhere permanent, such as <code>C:\Redis</code>, and double-click <strong><code>install-service.bat</code></strong>. It asks for admin rights, installs the <code>Redis</code> service with its data in the <code>data</code> folder next to it, and starts it.</p>
+        <p><strong><code>uninstall-service.bat</code></strong> removes the service again and keeps your data.</p>
+        <p>Check the service with:</p>
+        <div class="codeblock">
+<pre><code>sc query Redis</code></pre>
+          <button class="copy-btn" type="button" data-copy>Copy</button>
+        </div>
+      </section>
+
+      <section id="production" aria-labelledby="production-title">
+        <h2 id="production-title">Production installs</h2>
+        <p>For production, start from <a href="https://github.com/ahmedawachi/redis-windows/blob/main/conf/redis.windows-cache.conf"><code class="brk">conf/redis.windows-cache.conf</code></a>, a commented, production-minded config for cache workloads, and set a password.</p>
+        <p>Install with your own config and folders from an elevated prompt:</p>
+        <div class="codeblock">
+<pre><code>C:\Redis\releases\8.10.2-fork.1\RedisService.exe install --service-name Redis -c C:\Redis\conf\redis.conf --dir C:\Redis\data</code></pre>
+          <button class="copy-btn" type="button" data-copy>Copy</button>
+        </div>
+        <p>Run it in a console with explicit options:</p>
+        <div class="codeblock">
+<pre><code>RedisService.exe run --foreground -c C:\Redis\conf\redis.conf</code></pre>
+          <button class="copy-btn" type="button" data-copy>Copy</button>
+        </div>
+        <p>The first <kbd>Ctrl</kbd>+<kbd>C</kbd> stops Redis gracefully; a second forces it. <code>RedisService.exe --help</code> lists every option. Some of the useful ones:</p>
+        <div class="card" style="overflow-x:auto;box-shadow:none">
+          <table class="data-table opt-table" style="font-size:.875rem">
+            <thead><tr><th scope="col">Option</th><th scope="col">Meaning</th></tr></thead>
+            <tbody>
+              <tr><th scope="row"><code>--virtual-account</code></th><td style="white-space:normal">Run as <code>NT SERVICE\&lt;name&gt;</code> instead of LocalSystem and grant it access to the data, log and config folders. Opt-in; LocalSystem stays the default for compatibility.</td></tr>
+              <tr><th scope="row"><code>--delayed-start</code></th><td style="white-space:normal">Delayed automatic start (requires <code>--start-mode auto</code>).</td></tr>
+              <tr><th scope="row"><code>--restart-policy</code></th><td style="white-space:normal"><code>on-crash|always|never</code>. <code>on-crash</code> (default): restart redis-server after a crash; a clean exit the wrapper did not ask for (for example a client <code>SHUTDOWN</code>) stops the service.</td></tr>
+              <tr><th scope="row"><code>--max-restarts N</code> / <code>--restart-window T</code></th><td style="white-space:normal">Crash-loop cap (default 5 in 10m). When exceeded the service stops with exit code 1067 so the SCM recovery actions take over.</td></tr>
+              <tr><th scope="row"><code>--health-interval T</code> / <code>--health-failures N</code></th><td style="white-space:normal">Liveness PING (default every 5s; 12 misses = restart).</td></tr>
+              <tr><th scope="row"><code>--stop-timeout T</code></th><td style="white-space:normal">Graceful shutdown budget (default 120s).</td></tr>
+              <tr><th scope="row"><code>--auth-password-file FILE</code></th><td style="white-space:normal">Password for the wrapper's own connections, if it must differ from <code>requirepass</code>.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p style="margin-top:16px">Upgrades and rollbacks install side by side from another versioned folder and keep the previous version on disk; see the <a href="docs.html?doc=operations">operations guide</a> for the recommended layout, upgrades, monitoring and the incident checklist.</p>
+      </section>
+
+      <section id="direct" aria-labelledby="direct-title">
+        <h2 id="direct-title">Running <code>redis-server.exe</code> directly</h2>
+        <p><code>RedisService.exe</code> converts paths for you. If you start <code>redis-server.exe</code> yourself, command-line paths use the runtime's format:</p>
+        <div class="codeblock">
+<pre><code>redis-server.exe /cygdrive/c/Redis/conf/redis.conf --dir /cygdrive/c/Redis/data</code></pre>
+          <button class="copy-btn" type="button" data-copy>Copy</button>
+        </div>
+        <p>Inside <code>redis.conf</code>, Windows paths with forward slashes work: <code>dir C:/Redis/data</code>. The zip without the service also has <code>start.bat</code>, which runs Redis with the bundled <code>redis.conf</code>.</p>
+      </section>
+
+      <section id="faq" class="faq" aria-labelledby="faq-title">
+        <h2 id="faq-title">FAQ</h2>
+        <details>
+          <summary>Windows SmartScreen asks about every file</summary>
+          <div class="faq-body">
+            <p>Unblock the zip before extracting it: right-click → <strong>Properties</strong> → tick <strong>Unblock</strong> → <strong>OK</strong>. If you already extracted it, clear the "downloaded from the internet" marker on the folder from PowerShell:</p>
+            <div class="codeblock">
+<pre><code>Get-ChildItem C:\Redis\releases\8.10.2-fork.2 -Recurse | Unblock-File</code></pre>
+              <button class="copy-btn" type="button" data-copy>Copy</button>
+            </div>
+          </div>
+        </details>
+        <details>
+          <summary>The window says port 6379 is already in use</summary>
+          <div class="faq-body">
+            <p>Something else is already listening on the port, often another Redis. If you installed the service earlier with <code>install-service.bat</code>, it runs on <code>127.0.0.1:6379</code> and starts with Windows; check it with <code>sc query Redis</code>, or remove it with <code>uninstall-service.bat</code>, which keeps your data. The window stays open and says why it could not start, so nothing fails silently.</p>
+          </div>
+        </details>
+        <details>
+          <summary>Why must the folder not be called <code>bin</code> or <code>usr</code>?</summary>
+          <div class="faq-body">
+            <p>The MSYS2 runtime treats the folder <strong>two levels above</strong> the folder that holds <code>msys-2.0.dll</code> as its root <code>/</code>, and maps <code>/bin</code> to <code>&lt;root&gt;\usr\bin</code> (Cygwin: one level above). Unzip a package into a folder named <code>bin</code> or <code>usr</code> (for example <code>C:\bin\Redis-...</code>) and Redis cannot find its own config: <code class="brk">can't open config file /bin/...</code>. For the same reason, with <code class="brk">C:\Redis\releases\&lt;version&gt;\</code> as the release folder, never create <code>C:\Redis\bin</code>, <code>C:\Redis\usr</code> or <code>C:\Redis\etc\fstab</code>.</p>
+          </div>
+        </details>
+        <details>
+          <summary>Where is my data saved?</summary>
+          <div class="faq-body">
+            <p>When you double-click <code>RedisService.exe</code>, the window shows where your data is saved when Redis starts. The service that <code>install-service.bat</code> creates keeps its data and log in the <code>data</code> folder next to it, and <code>uninstall-service.bat</code> leaves that folder in place.</p>
+            <p>For your own installs, pass <code>--dir</code> to <code>RedisService.exe install</code>, or set <code>dir</code> in <code>redis.conf</code> with an absolute Windows path and forward slashes, such as <code>dir "C:/Redis/data"</code>. Keep config, data and logs outside the versioned release folders, so an upgrade or rollback only swaps binaries.</p>
+            <p>Old keys coming back after a restart with <code>save ""</code>? A leftover <code>dump.rdb</code> in <code>dir</code> is loaded at every startup and never rewritten. Stop the service, delete or rename it, and start it again.</p>
+          </div>
+        </details>
+      </section>
+    </div>
+  </div>
+</main>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <div class="foot-grid">
+      <div>
+        <a class="brand" href="./"><img src="assets/favicon.svg" alt="" width="28" height="28"><span>redis<span class="accent-text">-windows</span></span></a>
+        <p style="margin-top:12px">Redis for Windows: optimized, self-healing, crash-hardened.</p>
+      </div>
+      <div>
+        <h2>Project</h2>
+        <ul>
+          <li><a href="https://github.com/ahmedawachi/redis-windows/releases">Releases</a></li>
+          <li><a href="setup.html">60-second setup</a></li>
+          <li><a href="benchmarks.html">Benchmarks</a></li>
+          <li><a href="docs.html">Documentation</a></li>
+          <li><a href="https://github.com/ahmedawachi/redis-windows">Source on GitHub</a></li>
+          <li><a href="https://github.com/ahmedawachi/redis-windows/security/advisories/new">Report a security issue</a></li>
+        </ul>
+      </div>
+      <div>
+        <h2>Credits</h2>
+        <p><a href="https://github.com/redis-windows/redis-windows">redis-windows</a>, the project this fork builds on, and its maintainers.</p>
+        <p><a href="https://github.com/redis/redis">Redis</a>, and the <a href="https://www.msys2.org">MSYS2</a> and <a href="https://cygwin.com">Cygwin</a> projects whose runtimes make it run on Windows.</p>
+      </div>
+    </div>
+    <div class="fine">
+      <p>The service wrapper and the build tooling in this repository are licensed under the <a href="https://github.com/ahmedawachi/redis-windows/blob/main/LICENSE">Apache License 2.0</a>. Redis itself is licensed by Redis Ltd. under your choice of RSALv2, SSPLv1 or AGPLv3, and the patches in <code>patches/redis/</code> apply to that source. Release zips also contain the MSYS2/Cygwin runtime and OpenSSL, each under its own license. <a href="docs.html?doc=licensing">Licensing</a> has the details.</p>
+      <p>Redis is a registered trademark of Redis Ltd. Any rights therein are reserved to Redis Ltd. This project is not affiliated with, endorsed by, or sponsored by Redis Ltd. Redis officially supports Linux; builds from this repository are community-maintained, so test them against your own workload before relying on them in production.</p>
+    </div>
+  </div>
+</footer>
+</body>
+</html>

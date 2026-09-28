@@ -1,0 +1,72 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="360" viewBox="0 0 1280 360" role="img" aria-labelledby="t d">
+<title id="t">redis-windows</title>
+<desc id="d">Redis for Windows: optimized build, self-healing service, crash-hardened memory handling.</desc>
+<defs>
+<linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFFFFF"/><stop offset="1" stop-color="#FFF1F2"/></linearGradient>
+<linearGradient id="acc" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#F43F5E"/><stop offset="1" stop-color="#FB923C"/></linearGradient>
+<linearGradient id="accv" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#F43F5E"/><stop offset="1" stop-color="#FB923C"/></linearGradient>
+<pattern id="dots" width="24" height="24" patternUnits="userSpaceOnUse"><circle cx="2" cy="2" r="1.2" fill="#0F172A" fill-opacity="0.04"/></pattern>
+<radialGradient id="glow" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#F43F5E" stop-opacity="0.35"/><stop offset="1" stop-color="#F43F5E" stop-opacity="0"/></radialGradient>
+</defs>
+<style>
+.ecg{stroke-dasharray:1000;stroke-dashoffset:1000;animation:draw 6s linear infinite}
+@keyframes draw{0%{stroke-dashoffset:1000}70%{stroke-dashoffset:0}100%{stroke-dashoffset:0;opacity:0}}
+.fail{animation:fail 6s ease-in-out infinite}
+@keyframes fail{0%,30%{fill:url(#accv);opacity:1}38%{fill:#7F1D1D;opacity:1}46%,58%{opacity:.15}72%,100%{fill:url(#accv);opacity:1}}
+.pulse{animation:pulse 3s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:.55}50%{opacity:1}}
+@media (prefers-reduced-motion: reduce){.ecg{animation:none;stroke-dashoffset:0}.fail,.pulse{animation:none}}
+</style>
+<rect width="1280" height="360" fill="url(#bg)"/>
+<rect width="1280" height="360" fill="url(#dots)"/>
+<g transform="translate(0 0)">
+<circle cx="1068" cy="160" r="210" fill="url(#glow)" opacity="0.35"/>
+<rect class="pulse" x="930" y="64" width="30" height="30" rx="7" fill="url(#accv)" opacity="0.9"/>
+<rect x="970" y="64" width="30" height="30" rx="7" fill="url(#accv)" opacity="0.9"/>
+<rect x="1010" y="64" width="30" height="30" rx="7" fill="url(#accv)" opacity="0.9"/>
+<rect x="1050" y="64" width="30" height="30" rx="7" fill="#E2E8F0" opacity="1"/>
+<rect x="1090" y="64" width="30" height="30" rx="7" fill="#E2E8F0" opacity="1"/>
+<rect class="pulse" x="1130" y="64" width="30" height="30" rx="7" fill="url(#accv)" opacity="0.9"/>
+<rect x="1170" y="64" width="30" height="30" rx="7" fill="#E2E8F0" opacity="1"/>
+<rect x="930" y="104" width="30" height="30" rx="7" fill="url(#accv)" opacity="0.9"/>
+<rect x="970" y="104" width="30" height="30" rx="7" fill="url(#accv)" opacity="0.9"/>
+<rect x="1010" y="104" width="30" height="30" rx="7" fill="#E2E8F0" opacity="1"/>
+<rect x="1050" y="104" width="30" height="30" rx="7" fill="url(#accv)" opacity="0.9"/>
+<rect class="fail" x="1090" y="104" width="30" height="30" rx="7" fill="url(#accv)"/>
+<rect x="1130" y="104" width="30" height="30" rx="7" fill="#E2E8F0" opacity="1"/>
+<rect x="1170" y="104" width="30" height="30" rx="7" fill="url(#accv)" opacity="0.9"/>
+<rect x="930" y="144" width="30" height="30" rx="7" fill="url(#accv)" opacity="0.9"/>
+<rect x="970" y="144" width="30" height="30" rx="7" fill="#E2E8F0" opacity="1"/>
+<rect x="1010" y="144" width="30" height="30" rx="7" fill="url(#accv)" opacity="0.9"/>
+<rect x="1050" y="144" width="30" height="30" rx="7" fill="#E2E8F0" opacity="1"/>
+<rect x="1090" y="144" width="30" height="30" rx="7" fill="url(#accv)" opacity="0.9"/>
+<rect x="1130" y="144" width="30" height="30" rx="7" fill="#E2E8F0" opacity="1"/>
+<rect x="1170" y="144" width="30" height="30" rx="7" fill="#E2E8F0" opacity="1"/>
+<rect x="930" y="184" width="30" height="30" rx="7" fill="#E2E8F0" opacity="1"/>
+<rect x="970" y="184" width="30" height="30" rx="7" fill="url(#accv)" opacity="0.9"/>
+<rect x="1010" y="184" width="30" height="30" rx="7" fill="#E2E8F0" opacity="1"/>
+<rect x="1050" y="184" width="30" height="30" rx="7" fill="url(#accv)" opacity="0.9"/>
+<rect x="1090" y="184" width="30" height="30" rx="7" fill="#E2E8F0" opacity="1"/>
+<rect x="1130" y="184" width="30" height="30" rx="7" fill="url(#accv)" opacity="0.9"/>
+<rect x="1170" y="184" width="30" height="30" rx="7" fill="url(#accv)" opacity="0.9"/>
+<rect x="930" y="224" width="30" height="30" rx="7" fill="url(#accv)" opacity="0.9"/>
+<rect x="970" y="224" width="30" height="30" rx="7" fill="#E2E8F0" opacity="1"/>
+<rect x="1010" y="224" width="30" height="30" rx="7" fill="url(#accv)" opacity="0.9"/>
+<rect x="1050" y="224" width="30" height="30" rx="7" fill="#E2E8F0" opacity="1"/>
+<rect x="1090" y="224" width="30" height="30" rx="7" fill="url(#accv)" opacity="0.9"/>
+<rect x="1130" y="224" width="30" height="30" rx="7" fill="#E2E8F0" opacity="1"/>
+<rect x="1170" y="224" width="30" height="30" rx="7" fill="#E2E8F0" opacity="1"/>
+<path class="ecg" d="M0 318 L520 318 L548 318 L562 290 L578 346 L594 300 L606 318 L760 318 L786 318 L798 262 L814 350 L830 318 L1280 318" pathLength="1000" fill="none" stroke="url(#acc)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" opacity="0.45"/>
+<text x="80" y="150" font-family="-apple-system, 'Segoe UI', 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="86" font-weight="800" letter-spacing="-2" fill="#0F172A">redis<tspan fill="url(#acc)">-windows</tspan></text>
+<text x="84" y="198" font-family="-apple-system, 'Segoe UI', 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="25" font-weight="500" fill="#334155">Redis for Windows: optimized, self-healing, crash-hardened.</text>
+<rect x="84" y="226" width="114" height="36" rx="18" fill="#FFFFFF" stroke="#E2E8F0"/>
+<text x="141" y="250" text-anchor="middle" font-family="ui-monospace, 'SF Mono', 'Cascadia Code', Consolas, 'Liberation Mono', monospace" font-size="16" font-weight="600" fill="#0F172A">-O2 build</text>
+<rect x="210" y="226" width="104" height="36" rx="18" fill="#FFFFFF" stroke="#E2E8F0"/>
+<text x="262" y="250" text-anchor="middle" font-family="ui-monospace, 'SF Mono', 'Cascadia Code', Consolas, 'Liberation Mono', monospace" font-size="16" font-weight="600" fill="#0F172A">soft OOM</text>
+<rect x="326" y="226" width="220" height="36" rx="18" fill="#FFFFFF" stroke="#E2E8F0"/>
+<text x="436" y="250" text-anchor="middle" font-family="ui-monospace, 'SF Mono', 'Cascadia Code', Consolas, 'Liberation Mono', monospace" font-size="16" font-weight="600" fill="#0F172A">self-healing service</text>
+<rect x="558" y="226" width="210" height="36" rx="18" fill="#FFFFFF" stroke="#E2E8F0"/>
+<text x="663" y="250" text-anchor="middle" font-family="ui-monospace, 'SF Mono', 'Cascadia Code', Consolas, 'Liberation Mono', monospace" font-size="16" font-weight="600" fill="#0F172A">real memory metrics</text>
+<text x="1065" y="282" text-anchor="middle" font-family="ui-monospace, 'SF Mono', 'Cascadia Code', Consolas, 'Liberation Mono', monospace" font-size="14" font-weight="600" fill="#334155" opacity="0.8">MSYS2 · Cygwin · Redis 8.10</text>
+</g>
+</svg>

@@ -1,0 +1,2563 @@
+{
+  "id": "proxy-macos-2026-09-28",
+  "kind": "proxy",
+  "title": "macOS proxy: stock -O0 vs fork -O2",
+  "toolchain": "host",
+  "platform": "macOS 26.6.1 (25G76), Apple M4 Max, 14 logical CPUs, 36 GB RAM, arm64, Apple clang 17.0.0",
+  "redis_version": "8.10.2",
+  "commit": null,
+  "run_url": null,
+  "date": "2026-09-28T09:16:19Z",
+  "reps": 3,
+  "arms": [
+    {
+      "label": "baseline",
+      "name": "Stock build: upstream flags (-O0), no patches"
+    },
+    {
+      "label": "fork",
+      "name": "This fork: -O2 + patch series"
+    }
+  ],
+  "workloads": [
+    {
+      "id": "set-c1-p1-d3",
+      "test": "small",
+      "command": "set",
+      "params": "c=1 P=1 d=3",
+      "title": "SET · 3 B · 1 client",
+      "group": "Small values"
+    },
+    {
+      "id": "set-c50-p16-d3",
+      "test": "small",
+      "command": "set",
+      "params": "c=50 P=16 d=3",
+      "title": "SET · 3 B · 50 clients × 16 pipelined",
+      "group": "Small values"
+    },
+    {
+      "id": "get-c1-p1-d3",
+      "test": "small",
+      "command": "get",
+      "params": "c=1 P=1 d=3",
+      "title": "GET · 3 B · 1 client",
+      "group": "Small values"
+    },
+    {
+      "id": "get-c50-p16-d3",
+      "test": "small",
+      "command": "get",
+      "params": "c=50 P=16 d=3",
+      "title": "GET · 3 B · 50 clients × 16 pipelined",
+      "group": "Small values"
+    },
+    {
+      "id": "hset-c1-p1-d3",
+      "test": "small",
+      "command": "hset",
+      "params": "c=1 P=1 d=3",
+      "title": "HSET · 3 B · 1 client",
+      "group": "Small values"
+    },
+    {
+      "id": "hset-c50-p16-d3",
+      "test": "small",
+      "command": "hset",
+      "params": "c=50 P=16 d=3",
+      "title": "HSET · 3 B · 50 clients × 16 pipelined",
+      "group": "Small values"
+    },
+    {
+      "id": "set-c4-p1-d1900000",
+      "test": "large",
+      "command": "set",
+      "params": "c=4 P=1 d=1900000",
+      "title": "SET · 1.9 MB · 4 clients",
+      "group": "Large values"
+    },
+    {
+      "id": "get-c4-p1-d1900000",
+      "test": "large",
+      "command": "get",
+      "params": "c=4 P=1 d=1900000",
+      "title": "GET · 1.9 MB · 4 clients",
+      "group": "Large values"
+    },
+    {
+      "id": "hmget-c1-d1900000",
+      "test": "hmget",
+      "command": "hmget",
+      "params": "c=1 d=1900000",
+      "title": "HMGET · 1.9 MB field · 1 client",
+      "group": "Large values"
+    },
+    {
+      "id": "hmget-c2-d1900000",
+      "test": "hmget",
+      "command": "hmget",
+      "params": "c=2 d=1900000",
+      "title": "HMGET · 1.9 MB field · 2 clients",
+      "group": "Large values"
+    },
+    {
+      "id": "hset-large-c1-d1900000",
+      "test": "hset",
+      "command": "hset-large",
+      "params": "c=1 d=1900000",
+      "title": "HSET · 1.9 MB field · 1 client",
+      "group": "Large values"
+    },
+    {
+      "id": "bgsave-64mb",
+      "test": "bgsave",
+      "command": "bgsave",
+      "params": "populate=64MB",
+      "title": "BGSAVE · 64 MB dataset",
+      "group": "Persistence"
+    },
+    {
+      "id": "bgsave-256mb",
+      "test": "bgsave",
+      "command": "bgsave",
+      "params": "populate=256MB",
+      "title": "BGSAVE · 256 MB dataset",
+      "group": "Persistence"
+    }
+  ],
+  "results": [
+    {
+      "workload": "set-c1-p1-d3",
+      "metric": "rps",
+      "arm": "baseline",
+      "median": 18228.22,
+      "values": [
+        15738.12,
+        18228.22,
+        18508.24
+      ]
+    },
+    {
+      "workload": "set-c1-p1-d3",
+      "metric": "rps",
+      "arm": "fork",
+      "median": 17664.72,
+      "values": [
+        13777.9,
+        17664.72,
+        19105.85
+      ]
+    },
+    {
+      "workload": "set-c1-p1-d3",
+      "metric": "avg_ms",
+      "arm": "baseline",
+      "median": 0.046,
+      "values": [
+        0.054,
+        0.046,
+        0.046
+      ]
+    },
+    {
+      "workload": "set-c1-p1-d3",
+      "metric": "avg_ms",
+      "arm": "fork",
+      "median": 0.048,
+      "values": [
+        0.061,
+        0.048,
+        0.045
+      ]
+    },
+    {
+      "workload": "set-c1-p1-d3",
+      "metric": "p50_ms",
+      "arm": "baseline",
+      "median": 0.047,
+      "values": [
+        0.055,
+        0.047,
+        0.047
+      ]
+    },
+    {
+      "workload": "set-c1-p1-d3",
+      "metric": "p50_ms",
+      "arm": "fork",
+      "median": 0.047,
+      "values": [
+        0.055,
+        0.047,
+        0.047
+      ]
+    },
+    {
+      "workload": "set-c1-p1-d3",
+      "metric": "p99_ms",
+      "arm": "baseline",
+      "median": 0.103,
+      "values": [
+        0.143,
+        0.103,
+        0.087
+      ]
+    },
+    {
+      "workload": "set-c1-p1-d3",
+      "metric": "p99_ms",
+      "arm": "fork",
+      "median": 0.135,
+      "values": [
+        0.167,
+        0.135,
+        0.079
+      ]
+    },
+    {
+      "workload": "set-c1-p1-d3",
+      "metric": "max_ms",
+      "arm": "baseline",
+      "median": 3.959,
+      "values": [
+        8.439,
+        1.703,
+        3.959
+      ]
+    },
+    {
+      "workload": "set-c1-p1-d3",
+      "metric": "max_ms",
+      "arm": "fork",
+      "median": 6.215,
+      "values": [
+        11.047,
+        6.215,
+        5.623
+      ]
+    },
+    {
+      "workload": "set-c1-p1-d3",
+      "metric": "cpu_user_s",
+      "arm": "baseline",
+      "median": 0.317728,
+      "values": [
+        0.3519,
+        0.317728,
+        0.296345
+      ]
+    },
+    {
+      "workload": "set-c1-p1-d3",
+      "metric": "cpu_user_s",
+      "arm": "fork",
+      "median": 0.241852,
+      "values": [
+        0.312126,
+        0.241852,
+        0.218927
+      ]
+    },
+    {
+      "workload": "set-c1-p1-d3",
+      "metric": "cpu_sys_s",
+      "arm": "baseline",
+      "median": 1.613881,
+      "values": [
+        1.840952,
+        1.593102,
+        1.613881
+      ]
+    },
+    {
+      "workload": "set-c1-p1-d3",
+      "metric": "cpu_sys_s",
+      "arm": "fork",
+      "median": 1.641996,
+      "values": [
+        2.038665,
+        1.641996,
+        1.540738
+      ]
+    },
+    {
+      "workload": "set-c1-p1-d3",
+      "metric": "cpu_total_s",
+      "arm": "baseline",
+      "median": 1.91083,
+      "values": [
+        2.192852,
+        1.91083,
+        1.910226
+      ]
+    },
+    {
+      "workload": "set-c1-p1-d3",
+      "metric": "cpu_total_s",
+      "arm": "fork",
+      "median": 1.883848,
+      "values": [
+        2.350791,
+        1.883848,
+        1.759665
+      ]
+    },
+    {
+      "workload": "set-c1-p1-d3",
+      "metric": "cpu_us_per_op",
+      "arm": "baseline",
+      "median": 19.108,
+      "values": [
+        21.929,
+        19.108,
+        19.102
+      ]
+    },
+    {
+      "workload": "set-c1-p1-d3",
+      "metric": "cpu_us_per_op",
+      "arm": "fork",
+      "median": 18.838,
+      "values": [
+        23.508,
+        18.838,
+        17.597
+      ]
+    },
+    {
+      "workload": "set-c50-p16-d3",
+      "metric": "rps",
+      "arm": "baseline",
+      "median": 411861.62,
+      "values": [
+        398089.16,
+        411861.62,
+        414250.19
+      ]
+    },
+    {
+      "workload": "set-c50-p16-d3",
+      "metric": "rps",
+      "arm": "fork",
+      "median": 801282.06,
+      "values": [
+        536480.69,
+        801282.06,
+        801282.06
+      ]
+    },
+    {
+      "workload": "set-c50-p16-d3",
+      "metric": "avg_ms",
+      "arm": "baseline",
+      "median": 1.757,
+      "values": [
+        1.829,
+        1.754,
+        1.757
+      ]
+    },
+    {
+      "workload": "set-c50-p16-d3",
+      "metric": "avg_ms",
+      "arm": "fork",
+      "median": 0.871,
+      "values": [
+        1.27,
+        0.866,
+        0.871
+      ]
+    },
+    {
+      "workload": "set-c50-p16-d3",
+      "metric": "p50_ms",
+      "arm": "baseline",
+      "median": 1.695,
+      "values": [
+        1.767,
+        1.647,
+        1.695
+      ]
+    },
+    {
+      "workload": "set-c50-p16-d3",
+      "metric": "p50_ms",
+      "arm": "fork",
+      "median": 0.847,
+      "values": [
+        1.223,
+        0.839,
+        0.847
+      ]
+    },
+    {
+      "workload": "set-c50-p16-d3",
+      "metric": "p99_ms",
+      "arm": "baseline",
+      "median": 3.119,
+      "values": [
+        3.119,
+        4.055,
+        2.991
+      ]
+    },
+    {
+      "workload": "set-c50-p16-d3",
+      "metric": "p99_ms",
+      "arm": "fork",
+      "median": 1.519,
+      "values": [
+        2.383,
+        1.519,
+        1.319
+      ]
+    },
+    {
+      "workload": "set-c50-p16-d3",
+      "metric": "max_ms",
+      "arm": "baseline",
+      "median": 9.239,
+      "values": [
+        7.247,
+        11.287,
+        9.239
+      ]
+    },
+    {
+      "workload": "set-c50-p16-d3",
+      "metric": "max_ms",
+      "arm": "fork",
+      "median": 4.127,
+      "values": [
+        4.127,
+        2.991,
+        8.895
+      ]
+    },
+    {
+      "workload": "set-c50-p16-d3",
+      "metric": "cpu_user_s",
+      "arm": "baseline",
+      "median": 0.637766,
+      "values": [
+        0.662552,
+        0.629154,
+        0.637766
+      ]
+    },
+    {
+      "workload": "set-c50-p16-d3",
+      "metric": "cpu_user_s",
+      "arm": "fork",
+      "median": 0.181983,
+      "values": [
+        0.270846,
+        0.181983,
+        0.180018
+      ]
+    },
+    {
+      "workload": "set-c50-p16-d3",
+      "metric": "cpu_sys_s",
+      "arm": "baseline",
+      "median": 0.54228,
+      "values": [
+        0.56398,
+        0.537,
+        0.54228
+      ]
+    },
+    {
+      "workload": "set-c50-p16-d3",
+      "metric": "cpu_sys_s",
+      "arm": "fork",
+      "median": 0.42804,
+      "values": [
+        0.63041,
+        0.42572,
+        0.42804
+      ]
+    },
+    {
+      "workload": "set-c50-p16-d3",
+      "metric": "cpu_total_s",
+      "arm": "baseline",
+      "median": 1.180046,
+      "values": [
+        1.226532,
+        1.166154,
+        1.180046
+      ]
+    },
+    {
+      "workload": "set-c50-p16-d3",
+      "metric": "cpu_total_s",
+      "arm": "fork",
+      "median": 0.608058,
+      "values": [
+        0.901256,
+        0.607703,
+        0.608058
+      ]
+    },
+    {
+      "workload": "set-c50-p16-d3",
+      "metric": "cpu_us_per_op",
+      "arm": "baseline",
+      "median": 2.36,
+      "values": [
+        2.453,
+        2.332,
+        2.36
+      ]
+    },
+    {
+      "workload": "set-c50-p16-d3",
+      "metric": "cpu_us_per_op",
+      "arm": "fork",
+      "median": 1.216,
+      "values": [
+        1.803,
+        1.215,
+        1.216
+      ]
+    },
+    {
+      "workload": "get-c1-p1-d3",
+      "metric": "rps",
+      "arm": "baseline",
+      "median": 14382.28,
+      "values": [
+        14382.28,
+        14070.63,
+        19588.64
+      ]
+    },
+    {
+      "workload": "get-c1-p1-d3",
+      "metric": "rps",
+      "arm": "fork",
+      "median": 18406.04,
+      "values": [
+        18406.04,
+        17073.59,
+        20755.5
+      ]
+    },
+    {
+      "workload": "get-c1-p1-d3",
+      "metric": "avg_ms",
+      "arm": "baseline",
+      "median": 0.059,
+      "values": [
+        0.059,
+        0.06,
+        0.043
+      ]
+    },
+    {
+      "workload": "get-c1-p1-d3",
+      "metric": "avg_ms",
+      "arm": "fork",
+      "median": 0.046,
+      "values": [
+        0.046,
+        0.05,
+        0.041
+      ]
+    },
+    {
+      "workload": "get-c1-p1-d3",
+      "metric": "p50_ms",
+      "arm": "baseline",
+      "median": 0.055,
+      "values": [
+        0.055,
+        0.055,
+        0.047
+      ]
+    },
+    {
+      "workload": "get-c1-p1-d3",
+      "metric": "p50_ms",
+      "arm": "fork",
+      "median": 0.047,
+      "values": [
+        0.047,
+        0.047,
+        0.039
+      ]
+    },
+    {
+      "workload": "get-c1-p1-d3",
+      "metric": "p99_ms",
+      "arm": "baseline",
+      "median": 0.151,
+      "values": [
+        0.151,
+        0.199,
+        0.079
+      ]
+    },
+    {
+      "workload": "get-c1-p1-d3",
+      "metric": "p99_ms",
+      "arm": "fork",
+      "median": 0.087,
+      "values": [
+        0.087,
+        0.127,
+        0.063
+      ]
+    },
+    {
+      "workload": "get-c1-p1-d3",
+      "metric": "max_ms",
+      "arm": "baseline",
+      "median": 7.111,
+      "values": [
+        17.119,
+        7.111,
+        2.823
+      ]
+    },
+    {
+      "workload": "get-c1-p1-d3",
+      "metric": "max_ms",
+      "arm": "fork",
+      "median": 6.471,
+      "values": [
+        5.823,
+        8.807,
+        6.471
+      ]
+    },
+    {
+      "workload": "get-c1-p1-d3",
+      "metric": "cpu_user_s",
+      "arm": "baseline",
+      "median": 0.34578,
+      "values": [
+        0.34578,
+        0.366248,
+        0.242495
+      ]
+    },
+    {
+      "workload": "get-c1-p1-d3",
+      "metric": "cpu_user_s",
+      "arm": "fork",
+      "median": 0.206157,
+      "values": [
+        0.206157,
+        0.222563,
+        0.163474
+      ]
+    },
+    {
+      "workload": "get-c1-p1-d3",
+      "metric": "cpu_sys_s",
+      "arm": "baseline",
+      "median": 1.97377,
+      "values": [
+        2.00698,
+        1.97377,
+        1.53528
+      ]
+    },
+    {
+      "workload": "get-c1-p1-d3",
+      "metric": "cpu_sys_s",
+      "arm": "fork",
+      "median": 1.58444,
+      "values": [
+        1.58444,
+        1.67668,
+        1.47057
+      ]
+    },
+    {
+      "workload": "get-c1-p1-d3",
+      "metric": "cpu_total_s",
+      "arm": "baseline",
+      "median": 2.340018,
+      "values": [
+        2.35276,
+        2.340018,
+        1.777775
+      ]
+    },
+    {
+      "workload": "get-c1-p1-d3",
+      "metric": "cpu_total_s",
+      "arm": "fork",
+      "median": 1.790597,
+      "values": [
+        1.790597,
+        1.899243,
+        1.634044
+      ]
+    },
+    {
+      "workload": "get-c1-p1-d3",
+      "metric": "cpu_us_per_op",
+      "arm": "baseline",
+      "median": 23.4,
+      "values": [
+        23.528,
+        23.4,
+        17.778
+      ]
+    },
+    {
+      "workload": "get-c1-p1-d3",
+      "metric": "cpu_us_per_op",
+      "arm": "fork",
+      "median": 17.906,
+      "values": [
+        17.906,
+        18.992,
+        16.34
+      ]
+    },
+    {
+      "workload": "get-c50-p16-d3",
+      "metric": "rps",
+      "arm": "baseline",
+      "median": 422297.28,
+      "values": [
+        314861.44,
+        422297.28,
+        563063.06
+      ]
+    },
+    {
+      "workload": "get-c50-p16-d3",
+      "metric": "rps",
+      "arm": "fork",
+      "median": 749625.19,
+      "values": [
+        744047.62,
+        749625.19,
+        830564.81
+      ]
+    },
+    {
+      "workload": "get-c50-p16-d3",
+      "metric": "avg_ms",
+      "arm": "baseline",
+      "median": 1.689,
+      "values": [
+        2.213,
+        1.689,
+        1.279
+      ]
+    },
+    {
+      "workload": "get-c50-p16-d3",
+      "metric": "avg_ms",
+      "arm": "fork",
+      "median": 0.76,
+      "values": [
+        0.761,
+        0.76,
+        0.698
+      ]
+    },
+    {
+      "workload": "get-c50-p16-d3",
+      "metric": "p50_ms",
+      "arm": "baseline",
+      "median": 1.591,
+      "values": [
+        1.919,
+        1.591,
+        1.231
+      ]
+    },
+    {
+      "workload": "get-c50-p16-d3",
+      "metric": "p50_ms",
+      "arm": "fork",
+      "median": 0.687,
+      "values": [
+        0.687,
+        0.687,
+        0.663
+      ]
+    },
+    {
+      "workload": "get-c50-p16-d3",
+      "metric": "p99_ms",
+      "arm": "baseline",
+      "median": 3.623,
+      "values": [
+        5.831,
+        3.623,
+        2.039
+      ]
+    },
+    {
+      "workload": "get-c50-p16-d3",
+      "metric": "p99_ms",
+      "arm": "fork",
+      "median": 1.415,
+      "values": [
+        1.415,
+        1.879,
+        1.287
+      ]
+    },
+    {
+      "workload": "get-c50-p16-d3",
+      "metric": "max_ms",
+      "arm": "baseline",
+      "median": 6.287,
+      "values": [
+        32.895,
+        6.287,
+        4.055
+      ]
+    },
+    {
+      "workload": "get-c50-p16-d3",
+      "metric": "max_ms",
+      "arm": "fork",
+      "median": 5.495,
+      "values": [
+        8.591,
+        5.495,
+        1.463
+      ]
+    },
+    {
+      "workload": "get-c50-p16-d3",
+      "metric": "cpu_user_s",
+      "arm": "baseline",
+      "median": 0.53734,
+      "values": [
+        0.65526,
+        0.53734,
+        0.41452
+      ]
+    },
+    {
+      "workload": "get-c50-p16-d3",
+      "metric": "cpu_user_s",
+      "arm": "fork",
+      "median": 0.147104,
+      "values": [
+        0.149478,
+        0.147104,
+        0.136053
+      ]
+    },
+    {
+      "workload": "get-c50-p16-d3",
+      "metric": "cpu_sys_s",
+      "arm": "baseline",
+      "median": 0.592,
+      "values": [
+        0.7207,
+        0.592,
+        0.46146
+      ]
+    },
+    {
+      "workload": "get-c50-p16-d3",
+      "metric": "cpu_sys_s",
+      "arm": "fork",
+      "median": 0.45376,
+      "values": [
+        0.47316,
+        0.45376,
+        0.43864
+      ]
+    },
+    {
+      "workload": "get-c50-p16-d3",
+      "metric": "cpu_total_s",
+      "arm": "baseline",
+      "median": 1.12934,
+      "values": [
+        1.37596,
+        1.12934,
+        0.87598
+      ]
+    },
+    {
+      "workload": "get-c50-p16-d3",
+      "metric": "cpu_total_s",
+      "arm": "fork",
+      "median": 0.600864,
+      "values": [
+        0.622638,
+        0.600864,
+        0.574693
+      ]
+    },
+    {
+      "workload": "get-c50-p16-d3",
+      "metric": "cpu_us_per_op",
+      "arm": "baseline",
+      "median": 2.259,
+      "values": [
+        2.752,
+        2.259,
+        1.752
+      ]
+    },
+    {
+      "workload": "get-c50-p16-d3",
+      "metric": "cpu_us_per_op",
+      "arm": "fork",
+      "median": 1.202,
+      "values": [
+        1.245,
+        1.202,
+        1.149
+      ]
+    },
+    {
+      "workload": "hset-c1-p1-d3",
+      "metric": "rps",
+      "arm": "baseline",
+      "median": 13231.01,
+      "values": [
+        12813.94,
+        13231.01,
+        19105.85
+      ]
+    },
+    {
+      "workload": "hset-c1-p1-d3",
+      "metric": "rps",
+      "arm": "fork",
+      "median": 18594.27,
+      "values": [
+        18594.27,
+        16482.61,
+        19952.12
+      ]
+    },
+    {
+      "workload": "hset-c1-p1-d3",
+      "metric": "avg_ms",
+      "arm": "baseline",
+      "median": 0.064,
+      "values": [
+        0.066,
+        0.064,
+        0.045
+      ]
+    },
+    {
+      "workload": "hset-c1-p1-d3",
+      "metric": "avg_ms",
+      "arm": "fork",
+      "median": 0.046,
+      "values": [
+        0.046,
+        0.051,
+        0.043
+      ]
+    },
+    {
+      "workload": "hset-c1-p1-d3",
+      "metric": "p50_ms",
+      "arm": "baseline",
+      "median": 0.055,
+      "values": [
+        0.055,
+        0.055,
+        0.047
+      ]
+    },
+    {
+      "workload": "hset-c1-p1-d3",
+      "metric": "p50_ms",
+      "arm": "fork",
+      "median": 0.047,
+      "values": [
+        0.047,
+        0.047,
+        0.047
+      ]
+    },
+    {
+      "workload": "hset-c1-p1-d3",
+      "metric": "p99_ms",
+      "arm": "baseline",
+      "median": 0.183,
+      "values": [
+        0.199,
+        0.183,
+        0.079
+      ]
+    },
+    {
+      "workload": "hset-c1-p1-d3",
+      "metric": "p99_ms",
+      "arm": "fork",
+      "median": 0.087,
+      "values": [
+        0.087,
+        0.135,
+        0.071
+      ]
+    },
+    {
+      "workload": "hset-c1-p1-d3",
+      "metric": "max_ms",
+      "arm": "baseline",
+      "median": 7.983,
+      "values": [
+        8.767,
+        7.983,
+        0.455
+      ]
+    },
+    {
+      "workload": "hset-c1-p1-d3",
+      "metric": "max_ms",
+      "arm": "fork",
+      "median": 6.215,
+      "values": [
+        3.607,
+        6.215,
+        27.887
+      ]
+    },
+    {
+      "workload": "hset-c1-p1-d3",
+      "metric": "cpu_user_s",
+      "arm": "baseline",
+      "median": 0.45082,
+      "values": [
+        0.45618,
+        0.45082,
+        0.30687
+      ]
+    },
+    {
+      "workload": "hset-c1-p1-d3",
+      "metric": "cpu_user_s",
+      "arm": "fork",
+      "median": 0.233448,
+      "values": [
+        0.233448,
+        0.263909,
+        0.200916
+      ]
+    },
+    {
+      "workload": "hset-c1-p1-d3",
+      "metric": "cpu_sys_s",
+      "arm": "baseline",
+      "median": 2.07661,
+      "values": [
+        2.1308,
+        2.07661,
+        1.55155
+      ]
+    },
+    {
+      "workload": "hset-c1-p1-d3",
+      "metric": "cpu_sys_s",
+      "arm": "fork",
+      "median": 1.5888,
+      "values": [
+        1.5888,
+        1.77073,
+        1.51355
+      ]
+    },
+    {
+      "workload": "hset-c1-p1-d3",
+      "metric": "cpu_total_s",
+      "arm": "baseline",
+      "median": 2.52743,
+      "values": [
+        2.58698,
+        2.52743,
+        1.85842
+      ]
+    },
+    {
+      "workload": "hset-c1-p1-d3",
+      "metric": "cpu_total_s",
+      "arm": "fork",
+      "median": 1.822248,
+      "values": [
+        1.822248,
+        2.034639,
+        1.714466
+      ]
+    },
+    {
+      "workload": "hset-c1-p1-d3",
+      "metric": "cpu_us_per_op",
+      "arm": "baseline",
+      "median": 25.274,
+      "values": [
+        25.87,
+        25.274,
+        18.584
+      ]
+    },
+    {
+      "workload": "hset-c1-p1-d3",
+      "metric": "cpu_us_per_op",
+      "arm": "fork",
+      "median": 18.222,
+      "values": [
+        18.222,
+        20.346,
+        17.145
+      ]
+    },
+    {
+      "workload": "hset-c50-p16-d3",
+      "metric": "rps",
+      "arm": "baseline",
+      "median": 417710.94,
+      "values": [
+        417710.94,
+        323834.19,
+        486854.94
+      ]
+    },
+    {
+      "workload": "hset-c50-p16-d3",
+      "metric": "rps",
+      "arm": "fork",
+      "median": 679347.81,
+      "values": [
+        652741.56,
+        679347.81,
+        776397.5
+      ]
+    },
+    {
+      "workload": "hset-c50-p16-d3",
+      "metric": "avg_ms",
+      "arm": "baseline",
+      "median": 1.77,
+      "values": [
+        1.77,
+        2.243,
+        1.515
+      ]
+    },
+    {
+      "workload": "hset-c50-p16-d3",
+      "metric": "avg_ms",
+      "arm": "fork",
+      "median": 1.048,
+      "values": [
+        1.09,
+        1.048,
+        0.924
+      ]
+    },
+    {
+      "workload": "hset-c50-p16-d3",
+      "metric": "p50_ms",
+      "arm": "baseline",
+      "median": 1.759,
+      "values": [
+        1.759,
+        1.935,
+        1.503
+      ]
+    },
+    {
+      "workload": "hset-c50-p16-d3",
+      "metric": "p50_ms",
+      "arm": "fork",
+      "median": 1.015,
+      "values": [
+        1.055,
+        1.015,
+        0.903
+      ]
+    },
+    {
+      "workload": "hset-c50-p16-d3",
+      "metric": "p99_ms",
+      "arm": "baseline",
+      "median": 2.463,
+      "values": [
+        2.463,
+        7.119,
+        2.103
+      ]
+    },
+    {
+      "workload": "hset-c50-p16-d3",
+      "metric": "p99_ms",
+      "arm": "fork",
+      "median": 1.591,
+      "values": [
+        1.639,
+        1.591,
+        1.343
+      ]
+    },
+    {
+      "workload": "hset-c50-p16-d3",
+      "metric": "max_ms",
+      "arm": "baseline",
+      "median": 5.943,
+      "values": [
+        4.319,
+        60.703,
+        5.943
+      ]
+    },
+    {
+      "workload": "hset-c50-p16-d3",
+      "metric": "max_ms",
+      "arm": "fork",
+      "median": 2.367,
+      "values": [
+        2.367,
+        2.399,
+        1.959
+      ]
+    },
+    {
+      "workload": "hset-c50-p16-d3",
+      "metric": "cpu_user_s",
+      "arm": "baseline",
+      "median": 0.67016,
+      "values": [
+        0.67016,
+        0.74742,
+        0.59371
+      ]
+    },
+    {
+      "workload": "hset-c50-p16-d3",
+      "metric": "cpu_user_s",
+      "arm": "fork",
+      "median": 0.22121,
+      "values": [
+        0.23027,
+        0.22121,
+        0.194939
+      ]
+    },
+    {
+      "workload": "hset-c50-p16-d3",
+      "metric": "cpu_sys_s",
+      "arm": "baseline",
+      "median": 0.52031,
+      "values": [
+        0.52031,
+        0.59571,
+        0.42554
+      ]
+    },
+    {
+      "workload": "hset-c50-p16-d3",
+      "metric": "cpu_sys_s",
+      "arm": "fork",
+      "median": 0.50491,
+      "values": [
+        0.52179,
+        0.50491,
+        0.44209
+      ]
+    },
+    {
+      "workload": "hset-c50-p16-d3",
+      "metric": "cpu_total_s",
+      "arm": "baseline",
+      "median": 1.19047,
+      "values": [
+        1.19047,
+        1.34313,
+        1.01925
+      ]
+    },
+    {
+      "workload": "hset-c50-p16-d3",
+      "metric": "cpu_total_s",
+      "arm": "fork",
+      "median": 0.72612,
+      "values": [
+        0.75206,
+        0.72612,
+        0.637029
+      ]
+    },
+    {
+      "workload": "hset-c50-p16-d3",
+      "metric": "cpu_us_per_op",
+      "arm": "baseline",
+      "median": 2.381,
+      "values": [
+        2.381,
+        2.686,
+        2.038
+      ]
+    },
+    {
+      "workload": "hset-c50-p16-d3",
+      "metric": "cpu_us_per_op",
+      "arm": "fork",
+      "median": 1.452,
+      "values": [
+        1.504,
+        1.452,
+        1.274
+      ]
+    },
+    {
+      "workload": "set-c4-p1-d1900000",
+      "metric": "rps",
+      "arm": "baseline",
+      "median": 1136.36,
+      "values": [
+        1136.36,
+        1089.92,
+        1476.01
+      ]
+    },
+    {
+      "workload": "set-c4-p1-d1900000",
+      "metric": "rps",
+      "arm": "fork",
+      "median": 1176.47,
+      "values": [
+        1176.47,
+        1173.02,
+        1384.08
+      ]
+    },
+    {
+      "workload": "set-c4-p1-d1900000",
+      "metric": "avg_ms",
+      "arm": "baseline",
+      "median": 3.289,
+      "values": [
+        3.289,
+        3.497,
+        2.677
+      ]
+    },
+    {
+      "workload": "set-c4-p1-d1900000",
+      "metric": "avg_ms",
+      "arm": "fork",
+      "median": 3.355,
+      "values": [
+        3.355,
+        3.364,
+        2.874
+      ]
+    },
+    {
+      "workload": "set-c4-p1-d1900000",
+      "metric": "p50_ms",
+      "arm": "baseline",
+      "median": 3.279,
+      "values": [
+        3.279,
+        3.439,
+        2.647
+      ]
+    },
+    {
+      "workload": "set-c4-p1-d1900000",
+      "metric": "p50_ms",
+      "arm": "fork",
+      "median": 3.279,
+      "values": [
+        3.319,
+        3.279,
+        2.839
+      ]
+    },
+    {
+      "workload": "set-c4-p1-d1900000",
+      "metric": "p99_ms",
+      "arm": "baseline",
+      "median": 5.087,
+      "values": [
+        5.087,
+        6.103,
+        3.607
+      ]
+    },
+    {
+      "workload": "set-c4-p1-d1900000",
+      "metric": "p99_ms",
+      "arm": "fork",
+      "median": 4.735,
+      "values": [
+        4.735,
+        5.791,
+        3.855
+      ]
+    },
+    {
+      "workload": "set-c4-p1-d1900000",
+      "metric": "max_ms",
+      "arm": "baseline",
+      "median": 7.031,
+      "values": [
+        7.031,
+        7.823,
+        5.183
+      ]
+    },
+    {
+      "workload": "set-c4-p1-d1900000",
+      "metric": "max_ms",
+      "arm": "fork",
+      "median": 6.583,
+      "values": [
+        6.583,
+        9.015,
+        5.775
+      ]
+    },
+    {
+      "workload": "set-c4-p1-d1900000",
+      "metric": "cpu_user_s",
+      "arm": "baseline",
+      "median": 0.02003,
+      "values": [
+        0.02003,
+        0.02146,
+        0.01458
+      ]
+    },
+    {
+      "workload": "set-c4-p1-d1900000",
+      "metric": "cpu_user_s",
+      "arm": "fork",
+      "median": 0.01561,
+      "values": [
+        0.01561,
+        0.01605,
+        0.01283
+      ]
+    },
+    {
+      "workload": "set-c4-p1-d1900000",
+      "metric": "cpu_sys_s",
+      "arm": "baseline",
+      "median": 0.26152,
+      "values": [
+        0.26152,
+        0.26733,
+        0.20907
+      ]
+    },
+    {
+      "workload": "set-c4-p1-d1900000",
+      "metric": "cpu_sys_s",
+      "arm": "fork",
+      "median": 0.26029,
+      "values": [
+        0.26091,
+        0.26029,
+        0.2278
+      ]
+    },
+    {
+      "workload": "set-c4-p1-d1900000",
+      "metric": "cpu_total_s",
+      "arm": "baseline",
+      "median": 0.28155,
+      "values": [
+        0.28155,
+        0.28879,
+        0.22365
+      ]
+    },
+    {
+      "workload": "set-c4-p1-d1900000",
+      "metric": "cpu_total_s",
+      "arm": "fork",
+      "median": 0.27634,
+      "values": [
+        0.27652,
+        0.27634,
+        0.24063
+      ]
+    },
+    {
+      "workload": "set-c4-p1-d1900000",
+      "metric": "cpu_us_per_op",
+      "arm": "baseline",
+      "median": 703.875,
+      "values": [
+        703.875,
+        721.975,
+        559.125
+      ]
+    },
+    {
+      "workload": "set-c4-p1-d1900000",
+      "metric": "cpu_us_per_op",
+      "arm": "fork",
+      "median": 690.85,
+      "values": [
+        691.3,
+        690.85,
+        601.575
+      ]
+    },
+    {
+      "workload": "get-c4-p1-d1900000",
+      "metric": "rps",
+      "arm": "baseline",
+      "median": 1379.31,
+      "values": [
+        1223.24,
+        1379.31,
+        1680.67
+      ]
+    },
+    {
+      "workload": "get-c4-p1-d1900000",
+      "metric": "rps",
+      "arm": "fork",
+      "median": 1351.35,
+      "values": [
+        1324.5,
+        1351.35,
+        1544.4
+      ]
+    },
+    {
+      "workload": "get-c4-p1-d1900000",
+      "metric": "avg_ms",
+      "arm": "baseline",
+      "median": 0.881,
+      "values": [
+        1.019,
+        0.881,
+        0.597
+      ]
+    },
+    {
+      "workload": "get-c4-p1-d1900000",
+      "metric": "avg_ms",
+      "arm": "fork",
+      "median": 0.839,
+      "values": [
+        0.839,
+        0.89,
+        0.788
+      ]
+    },
+    {
+      "workload": "get-c4-p1-d1900000",
+      "metric": "p50_ms",
+      "arm": "baseline",
+      "median": 0.831,
+      "values": [
+        0.871,
+        0.831,
+        0.551
+      ]
+    },
+    {
+      "workload": "get-c4-p1-d1900000",
+      "metric": "p50_ms",
+      "arm": "fork",
+      "median": 0.767,
+      "values": [
+        0.767,
+        0.815,
+        0.711
+      ]
+    },
+    {
+      "workload": "get-c4-p1-d1900000",
+      "metric": "p99_ms",
+      "arm": "baseline",
+      "median": 1.671,
+      "values": [
+        2.767,
+        1.671,
+        1.119
+      ]
+    },
+    {
+      "workload": "get-c4-p1-d1900000",
+      "metric": "p99_ms",
+      "arm": "fork",
+      "median": 1.807,
+      "values": [
+        1.935,
+        1.807,
+        1.423
+      ]
+    },
+    {
+      "workload": "get-c4-p1-d1900000",
+      "metric": "max_ms",
+      "arm": "baseline",
+      "median": 2.239,
+      "values": [
+        3.487,
+        2.239,
+        1.399
+      ]
+    },
+    {
+      "workload": "get-c4-p1-d1900000",
+      "metric": "max_ms",
+      "arm": "fork",
+      "median": 2.815,
+      "values": [
+        2.815,
+        2.935,
+        2.559
+      ]
+    },
+    {
+      "workload": "get-c4-p1-d1900000",
+      "metric": "cpu_user_s",
+      "arm": "baseline",
+      "median": 0.00318,
+      "values": [
+        0.0037,
+        0.00318,
+        0.00229
+      ]
+    },
+    {
+      "workload": "get-c4-p1-d1900000",
+      "metric": "cpu_user_s",
+      "arm": "fork",
+      "median": 0.0025,
+      "values": [
+        0.00283,
+        0.0025,
+        0.00189
+      ]
+    },
+    {
+      "workload": "get-c4-p1-d1900000",
+      "metric": "cpu_sys_s",
+      "arm": "baseline",
+      "median": 0.22869,
+      "values": [
+        0.25495,
+        0.22869,
+        0.19321
+      ]
+    },
+    {
+      "workload": "get-c4-p1-d1900000",
+      "metric": "cpu_sys_s",
+      "arm": "fork",
+      "median": 0.22624,
+      "values": [
+        0.2406,
+        0.22624,
+        0.20055
+      ]
+    },
+    {
+      "workload": "get-c4-p1-d1900000",
+      "metric": "cpu_total_s",
+      "arm": "baseline",
+      "median": 0.23187,
+      "values": [
+        0.25865,
+        0.23187,
+        0.1955
+      ]
+    },
+    {
+      "workload": "get-c4-p1-d1900000",
+      "metric": "cpu_total_s",
+      "arm": "fork",
+      "median": 0.22874,
+      "values": [
+        0.24343,
+        0.22874,
+        0.20244
+      ]
+    },
+    {
+      "workload": "get-c4-p1-d1900000",
+      "metric": "cpu_us_per_op",
+      "arm": "baseline",
+      "median": 579.675,
+      "values": [
+        646.625,
+        579.675,
+        488.75
+      ]
+    },
+    {
+      "workload": "get-c4-p1-d1900000",
+      "metric": "cpu_us_per_op",
+      "arm": "fork",
+      "median": 571.85,
+      "values": [
+        608.575,
+        571.85,
+        506.1
+      ]
+    },
+    {
+      "workload": "hmget-c1-d1900000",
+      "metric": "rps",
+      "arm": "baseline",
+      "median": 1036.27,
+      "values": [
+        1012.66,
+        1036.27,
+        1302.93
+      ]
+    },
+    {
+      "workload": "hmget-c1-d1900000",
+      "metric": "rps",
+      "arm": "fork",
+      "median": 1092.9,
+      "values": [
+        963.86,
+        1092.9,
+        1204.82
+      ]
+    },
+    {
+      "workload": "hmget-c1-d1900000",
+      "metric": "avg_ms",
+      "arm": "baseline",
+      "median": 0.126,
+      "values": [
+        0.126,
+        0.134,
+        0.105
+      ]
+    },
+    {
+      "workload": "hmget-c1-d1900000",
+      "metric": "avg_ms",
+      "arm": "fork",
+      "median": 0.109,
+      "values": [
+        0.132,
+        0.109,
+        0.093
+      ]
+    },
+    {
+      "workload": "hmget-c1-d1900000",
+      "metric": "p50_ms",
+      "arm": "baseline",
+      "median": 0.127,
+      "values": [
+        0.127,
+        0.127,
+        0.103
+      ]
+    },
+    {
+      "workload": "hmget-c1-d1900000",
+      "metric": "p50_ms",
+      "arm": "fork",
+      "median": 0.103,
+      "values": [
+        0.127,
+        0.103,
+        0.095
+      ]
+    },
+    {
+      "workload": "hmget-c1-d1900000",
+      "metric": "p99_ms",
+      "arm": "baseline",
+      "median": 0.175,
+      "values": [
+        0.175,
+        0.327,
+        0.135
+      ]
+    },
+    {
+      "workload": "hmget-c1-d1900000",
+      "metric": "p99_ms",
+      "arm": "fork",
+      "median": 0.183,
+      "values": [
+        0.215,
+        0.183,
+        0.127
+      ]
+    },
+    {
+      "workload": "hmget-c1-d1900000",
+      "metric": "max_ms",
+      "arm": "baseline",
+      "median": 0.207,
+      "values": [
+        0.207,
+        0.679,
+        0.183
+      ]
+    },
+    {
+      "workload": "hmget-c1-d1900000",
+      "metric": "max_ms",
+      "arm": "fork",
+      "median": 0.391,
+      "values": [
+        1.359,
+        0.391,
+        0.159
+      ]
+    },
+    {
+      "workload": "hmget-c1-d1900000",
+      "metric": "cpu_user_s",
+      "arm": "baseline",
+      "median": 0.01774,
+      "values": [
+        0.01774,
+        0.01786,
+        0.0147
+      ]
+    },
+    {
+      "workload": "hmget-c1-d1900000",
+      "metric": "cpu_user_s",
+      "arm": "fork",
+      "median": 0.01423,
+      "values": [
+        0.0168,
+        0.01423,
+        0.01267
+      ]
+    },
+    {
+      "workload": "hmget-c1-d1900000",
+      "metric": "cpu_sys_s",
+      "arm": "baseline",
+      "median": 0.23216,
+      "values": [
+        0.23851,
+        0.23216,
+        0.19064
+      ]
+    },
+    {
+      "workload": "hmget-c1-d1900000",
+      "metric": "cpu_sys_s",
+      "arm": "fork",
+      "median": 0.22276,
+      "values": [
+        0.25202,
+        0.22276,
+        0.19921
+      ]
+    },
+    {
+      "workload": "hmget-c1-d1900000",
+      "metric": "cpu_total_s",
+      "arm": "baseline",
+      "median": 0.25002,
+      "values": [
+        0.25625,
+        0.25002,
+        0.20534
+      ]
+    },
+    {
+      "workload": "hmget-c1-d1900000",
+      "metric": "cpu_total_s",
+      "arm": "fork",
+      "median": 0.23699,
+      "values": [
+        0.26882,
+        0.23699,
+        0.21188
+      ]
+    },
+    {
+      "workload": "hmget-c1-d1900000",
+      "metric": "cpu_us_per_op",
+      "arm": "baseline",
+      "median": 625.05,
+      "values": [
+        640.625,
+        625.05,
+        513.35
+      ]
+    },
+    {
+      "workload": "hmget-c1-d1900000",
+      "metric": "cpu_us_per_op",
+      "arm": "fork",
+      "median": 592.475,
+      "values": [
+        672.05,
+        592.475,
+        529.7
+      ]
+    },
+    {
+      "workload": "hmget-c2-d1900000",
+      "metric": "rps",
+      "arm": "baseline",
+      "median": 1337.79,
+      "values": [
+        1277.96,
+        1337.79,
+        1538.46
+      ]
+    },
+    {
+      "workload": "hmget-c2-d1900000",
+      "metric": "rps",
+      "arm": "fork",
+      "median": 1186.94,
+      "values": [
+        1186.94,
+        1183.43,
+        1413.43
+      ]
+    },
+    {
+      "workload": "hmget-c2-d1900000",
+      "metric": "avg_ms",
+      "arm": "baseline",
+      "median": 0.349,
+      "values": [
+        0.369,
+        0.349,
+        0.301
+      ]
+    },
+    {
+      "workload": "hmget-c2-d1900000",
+      "metric": "avg_ms",
+      "arm": "fork",
+      "median": 0.42,
+      "values": [
+        0.42,
+        0.47,
+        0.302
+      ]
+    },
+    {
+      "workload": "hmget-c2-d1900000",
+      "metric": "p50_ms",
+      "arm": "baseline",
+      "median": 0.295,
+      "values": [
+        0.335,
+        0.295,
+        0.263
+      ]
+    },
+    {
+      "workload": "hmget-c2-d1900000",
+      "metric": "p50_ms",
+      "arm": "fork",
+      "median": 0.375,
+      "values": [
+        0.375,
+        0.391,
+        0.255
+      ]
+    },
+    {
+      "workload": "hmget-c2-d1900000",
+      "metric": "p99_ms",
+      "arm": "baseline",
+      "median": 0.783,
+      "values": [
+        0.831,
+        0.783,
+        0.695
+      ]
+    },
+    {
+      "workload": "hmget-c2-d1900000",
+      "metric": "p99_ms",
+      "arm": "fork",
+      "median": 0.975,
+      "values": [
+        0.975,
+        1.623,
+        0.751
+      ]
+    },
+    {
+      "workload": "hmget-c2-d1900000",
+      "metric": "max_ms",
+      "arm": "baseline",
+      "median": 0.863,
+      "values": [
+        1.103,
+        0.863,
+        0.735
+      ]
+    },
+    {
+      "workload": "hmget-c2-d1900000",
+      "metric": "max_ms",
+      "arm": "fork",
+      "median": 1.255,
+      "values": [
+        1.255,
+        2.943,
+        1.031
+      ]
+    },
+    {
+      "workload": "hmget-c2-d1900000",
+      "metric": "cpu_user_s",
+      "arm": "baseline",
+      "median": 0.01457,
+      "values": [
+        0.01577,
+        0.01457,
+        0.0133
+      ]
+    },
+    {
+      "workload": "hmget-c2-d1900000",
+      "metric": "cpu_user_s",
+      "arm": "fork",
+      "median": 0.01627,
+      "values": [
+        0.01627,
+        0.01662,
+        0.01244
+      ]
+    },
+    {
+      "workload": "hmget-c2-d1900000",
+      "metric": "cpu_sys_s",
+      "arm": "baseline",
+      "median": 0.21043,
+      "values": [
+        0.21935,
+        0.21043,
+        0.18608
+      ]
+    },
+    {
+      "workload": "hmget-c2-d1900000",
+      "metric": "cpu_sys_s",
+      "arm": "fork",
+      "median": 0.237,
+      "values": [
+        0.237,
+        0.23739,
+        0.19863
+      ]
+    },
+    {
+      "workload": "hmget-c2-d1900000",
+      "metric": "cpu_total_s",
+      "arm": "baseline",
+      "median": 0.225,
+      "values": [
+        0.23512,
+        0.225,
+        0.19938
+      ]
+    },
+    {
+      "workload": "hmget-c2-d1900000",
+      "metric": "cpu_total_s",
+      "arm": "fork",
+      "median": 0.25327,
+      "values": [
+        0.25327,
+        0.25401,
+        0.21107
+      ]
+    },
+    {
+      "workload": "hmget-c2-d1900000",
+      "metric": "cpu_us_per_op",
+      "arm": "baseline",
+      "median": 562.5,
+      "values": [
+        587.8,
+        562.5,
+        498.45
+      ]
+    },
+    {
+      "workload": "hmget-c2-d1900000",
+      "metric": "cpu_us_per_op",
+      "arm": "fork",
+      "median": 633.175,
+      "values": [
+        633.175,
+        635.025,
+        527.675
+      ]
+    },
+    {
+      "workload": "hset-large-c1-d1900000",
+      "metric": "rps",
+      "arm": "baseline",
+      "median": 746.27,
+      "values": [
+        746.27,
+        673.4,
+        938.97
+      ]
+    },
+    {
+      "workload": "hset-large-c1-d1900000",
+      "metric": "rps",
+      "arm": "fork",
+      "median": 816.33,
+      "values": [
+        720.72,
+        816.33,
+        941.18
+      ]
+    },
+    {
+      "workload": "hset-large-c1-d1900000",
+      "metric": "avg_ms",
+      "arm": "baseline",
+      "median": 1.33,
+      "values": [
+        1.33,
+        1.464,
+        1.056
+      ]
+    },
+    {
+      "workload": "hset-large-c1-d1900000",
+      "metric": "avg_ms",
+      "arm": "fork",
+      "median": 1.213,
+      "values": [
+        1.377,
+        1.213,
+        1.055
+      ]
+    },
+    {
+      "workload": "hset-large-c1-d1900000",
+      "metric": "p50_ms",
+      "arm": "baseline",
+      "median": 1.319,
+      "values": [
+        1.319,
+        1.359,
+        1.039
+      ]
+    },
+    {
+      "workload": "hset-large-c1-d1900000",
+      "metric": "p50_ms",
+      "arm": "fork",
+      "median": 1.215,
+      "values": [
+        1.359,
+        1.215,
+        1.055
+      ]
+    },
+    {
+      "workload": "hset-large-c1-d1900000",
+      "metric": "p99_ms",
+      "arm": "baseline",
+      "median": 2.023,
+      "values": [
+        2.023,
+        2.791,
+        1.383
+      ]
+    },
+    {
+      "workload": "hset-large-c1-d1900000",
+      "metric": "p99_ms",
+      "arm": "fork",
+      "median": 1.447,
+      "values": [
+        1.751,
+        1.447,
+        1.263
+      ]
+    },
+    {
+      "workload": "hset-large-c1-d1900000",
+      "metric": "max_ms",
+      "arm": "baseline",
+      "median": 6.559,
+      "values": [
+        6.559,
+        10.943,
+        1.447
+      ]
+    },
+    {
+      "workload": "hset-large-c1-d1900000",
+      "metric": "max_ms",
+      "arm": "fork",
+      "median": 1.671,
+      "values": [
+        1.855,
+        1.671,
+        1.335
+      ]
+    },
+    {
+      "workload": "hset-large-c1-d1900000",
+      "metric": "cpu_user_s",
+      "arm": "baseline",
+      "median": 0.02649,
+      "values": [
+        0.02649,
+        0.03291,
+        0.02238
+      ]
+    },
+    {
+      "workload": "hset-large-c1-d1900000",
+      "metric": "cpu_user_s",
+      "arm": "fork",
+      "median": 0.02507,
+      "values": [
+        0.02649,
+        0.02507,
+        0.02114
+      ]
+    },
+    {
+      "workload": "hset-large-c1-d1900000",
+      "metric": "cpu_sys_s",
+      "arm": "baseline",
+      "median": 0.22971,
+      "values": [
+        0.22971,
+        0.23392,
+        0.19822
+      ]
+    },
+    {
+      "workload": "hset-large-c1-d1900000",
+      "metric": "cpu_sys_s",
+      "arm": "fork",
+      "median": 0.24398,
+      "values": [
+        0.25714,
+        0.24398,
+        0.21126
+      ]
+    },
+    {
+      "workload": "hset-large-c1-d1900000",
+      "metric": "cpu_total_s",
+      "arm": "baseline",
+      "median": 0.2562,
+      "values": [
+        0.2562,
+        0.26683,
+        0.2206
+      ]
+    },
+    {
+      "workload": "hset-large-c1-d1900000",
+      "metric": "cpu_total_s",
+      "arm": "fork",
+      "median": 0.26905,
+      "values": [
+        0.28363,
+        0.26905,
+        0.2324
+      ]
+    },
+    {
+      "workload": "hset-large-c1-d1900000",
+      "metric": "cpu_us_per_op",
+      "arm": "baseline",
+      "median": 640.5,
+      "values": [
+        640.5,
+        667.075,
+        551.5
+      ]
+    },
+    {
+      "workload": "hset-large-c1-d1900000",
+      "metric": "cpu_us_per_op",
+      "arm": "fork",
+      "median": 672.625,
+      "values": [
+        709.075,
+        672.625,
+        581
+      ]
+    },
+    {
+      "workload": "bgsave-64mb",
+      "metric": "used_memory_mb",
+      "arm": "baseline",
+      "median": 75.8,
+      "values": [
+        75.8,
+        75.8,
+        75.8
+      ]
+    },
+    {
+      "workload": "bgsave-64mb",
+      "metric": "used_memory_mb",
+      "arm": "fork",
+      "median": 75.8,
+      "values": [
+        75.8,
+        75.8,
+        75.8
+      ]
+    },
+    {
+      "workload": "bgsave-64mb",
+      "metric": "fork_ms",
+      "arm": "baseline",
+      "median": 2.975,
+      "values": [
+        4.267,
+        2.981,
+        2.615,
+        5.414,
+        2.975,
+        2.779,
+        3.911,
+        2.534,
+        2.468
+      ]
+    },
+    {
+      "workload": "bgsave-64mb",
+      "metric": "fork_ms",
+      "arm": "fork",
+      "median": 2.873,
+      "values": [
+        5.519,
+        3.473,
+        2.731,
+        4.903,
+        2.69,
+        2.873,
+        4.635,
+        2.745,
+        2.856
+      ]
+    },
+    {
+      "workload": "bgsave-64mb",
+      "metric": "bgsave_wall_ms",
+      "arm": "baseline",
+      "median": 300.3,
+      "values": [
+        314,
+        292.6,
+        356.6,
+        341,
+        369.5,
+        299.7,
+        300.3,
+        288.8,
+        287.4
+      ]
+    },
+    {
+      "workload": "bgsave-64mb",
+      "metric": "bgsave_wall_ms",
+      "arm": "fork",
+      "median": 180.2,
+      "values": [
+        196.5,
+        119.9,
+        223.2,
+        183.9,
+        144.9,
+        180.2,
+        239.3,
+        170.8,
+        104.4
+      ]
+    },
+    {
+      "workload": "bgsave-64mb",
+      "metric": "child_cpu_s",
+      "arm": "baseline",
+      "median": 0.174,
+      "values": [
+        0.174,
+        0.181,
+        0.185,
+        0.186,
+        0.179,
+        0.161,
+        0.164,
+        0.162,
+        0.16
+      ]
+    },
+    {
+      "workload": "bgsave-64mb",
+      "metric": "child_cpu_s",
+      "arm": "fork",
+      "median": 0.052,
+      "values": [
+        0.054,
+        0.056,
+        0.057,
+        0.052,
+        0.052,
+        0.05,
+        0.05,
+        0.049,
+        0.049
+      ]
+    },
+    {
+      "workload": "bgsave-256mb",
+      "metric": "used_memory_mb",
+      "arm": "baseline",
+      "median": 300,
+      "values": [
+        300,
+        300,
+        300
+      ]
+    },
+    {
+      "workload": "bgsave-256mb",
+      "metric": "used_memory_mb",
+      "arm": "fork",
+      "median": 300,
+      "values": [
+        300,
+        300,
+        300
+      ]
+    },
+    {
+      "workload": "bgsave-256mb",
+      "metric": "fork_ms",
+      "arm": "baseline",
+      "median": 8.304,
+      "values": [
+        14.651,
+        8.093,
+        9.237,
+        15.154,
+        8.11,
+        7.991,
+        13.312,
+        7.451,
+        8.304
+      ]
+    },
+    {
+      "workload": "bgsave-256mb",
+      "metric": "fork_ms",
+      "arm": "fork",
+      "median": 8.519,
+      "values": [
+        15.611,
+        8.519,
+        7.904,
+        15.583,
+        7.473,
+        7.825,
+        14.55,
+        8.625,
+        8.19
+      ]
+    },
+    {
+      "workload": "bgsave-256mb",
+      "metric": "bgsave_wall_ms",
+      "arm": "baseline",
+      "median": 859.8,
+      "values": [
+        893.9,
+        948,
+        1105.4,
+        782.9,
+        796.9,
+        807.4,
+        835.4,
+        859.8,
+        864
+      ]
+    },
+    {
+      "workload": "bgsave-256mb",
+      "metric": "bgsave_wall_ms",
+      "arm": "fork",
+      "median": 394.3,
+      "values": [
+        427.6,
+        453.3,
+        421.5,
+        411.7,
+        328.7,
+        335.7,
+        333.9,
+        337.6,
+        394.3
+      ]
+    },
+    {
+      "workload": "bgsave-256mb",
+      "metric": "child_cpu_s",
+      "arm": "baseline",
+      "median": 0.661,
+      "values": [
+        0.68,
+        0.776,
+        0.849,
+        0.661,
+        0.66,
+        0.655,
+        0.666,
+        0.653,
+        0.646
+      ]
+    },
+    {
+      "workload": "bgsave-256mb",
+      "metric": "child_cpu_s",
+      "arm": "fork",
+      "median": 0.214,
+      "values": [
+        0.245,
+        0.24,
+        0.232,
+        0.214,
+        0.21,
+        0.202,
+        0.197,
+        0.215,
+        0.204
+      ]
+    }
+  ],
+  "notes": [
+    "This is NOT a Windows measurement. Both builds ran natively on macOS, so the Windows runtimes (MSYS2 and Cygwin, their select() event loop and fork emulation) are not part of these numbers; Windows figures come from the Verify workflow's benchmark job.",
+    "It is still indicative: both arms are the same Redis 8.10.2 source built with the same compiler, and they differ only in the optimization level (-O0 vs -O2) and in the patch series, which is portable C. Those are the same differences the Windows builds have.",
+    "Stock: make MALLOC=libc CFLAGS=\"-Wno-char-subscripts -O0\". Fork: patches/redis applied with scripts/apply-patches.sh, then make MALLOC=libc OPTIMIZATION=-O2 CFLAGS=\"-Wno-char-subscripts\".",
+    "ci/bench.sh run as the Verify workflow runs it: baseline and fork interleaved, one repetition each per round, 3 rounds, script defaults (BENCH_POPULATE_MB \"64 256\"). Each figure is the median of 3 repetitions; BGSAVE figures are the median of 9 saves (3 per repetition).",
+    "Other applications were running on the machine throughout (load average 10.97 at the start and 8.02 at the end, on 14 logical CPUs). Single-client and large-value workloads run for well under a second each and are the most exposed to that noise."
+  ]
+}

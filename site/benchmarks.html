@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Benchmarks · redis-windows</title>
+<meta name="description" content="Stock Redis for Windows build vs this fork: throughput, latency, server CPU per command and BGSAVE, measured on the same runner, interleaved.">
+<link rel="canonical" href="https://ahmedawachi.github.io/redis-windows/benchmarks.html">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#0B1020">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="redis-windows">
+<meta property="og:title" content="Benchmarks · redis-windows">
+<meta property="og:description" content="Stock build vs this fork, same runner, interleaved. Every number is read from the published benchmark data.">
+<meta property="og:url" content="https://ahmedawachi.github.io/redis-windows/benchmarks.html">
+<meta property="og:image" content="https://ahmedawachi.github.io/redis-windows/assets/social-preview.png">
+<meta property="og:image:width" content="1280">
+<meta property="og:image:height" content="640">
+<meta property="og:image:alt" content="redis-windows: Redis for Windows, optimized, self-healing, crash-hardened.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Benchmarks · redis-windows">
+<meta name="twitter:description" content="Stock build vs this fork, same runner, interleaved.">
+<meta name="twitter:image" content="https://ahmedawachi.github.io/redis-windows/assets/social-preview.png">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="assets/site.css">
+<script src="js/theme.js"></script>
+<script type="module" src="js/benchmarks.js"></script>
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="./"><img src="assets/favicon.svg" alt="" width="28" height="28"><span>redis<span class="accent-text">-windows</span></span></a>
+    <nav id="site-nav" class="nav" aria-label="Main">
+      <a href="setup.html">Setup</a>
+      <a href="benchmarks.html" aria-current="page">Benchmarks</a>
+      <a href="docs.html">Docs</a>
+      <a href="https://github.com/ahmedawachi/redis-windows">GitHub</a>
+    </nav>
+    <button class="icon-btn theme-btn" type="button" data-theme-toggle aria-label="Theme"></button>
+    <button class="icon-btn menu-btn" type="button" data-menu-toggle aria-expanded="false" aria-controls="site-nav" aria-label="Menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+  </div>
+</header>
+
+<main id="main">
+  <section class="page-hero">
+    <div class="wrap">
+      <span class="eyebrow">Stock vs fork</span>
+      <h1>Benchmarks</h1>
+      <p>The stock build and this fork, benchmarked on one runner, interleaved. Every number on this page is read from <a href="data/bench.json">data/bench.json</a>; ratios always compare the fork with the stock build on the same workload.</p>
+    </div>
+  </section>
+
+  <div class="wrap">
+    <div class="controls" id="controls" hidden>
+      <div class="control control-dataset">
+        <label for="ds-select">Dataset</label>
+        <select id="ds-select"></select>
+      </div>
+      <div class="control control-toolchain" id="tc-wrap" hidden>
+        <label for="tc-select">Toolchain</label>
+        <select id="tc-select"></select>
+      </div>
+      <span class="spacer"></span>
+      <a class="data-link" href="data/bench.json" download>Download data/bench.json</a>
+    </div>
+
+    <div id="notice" aria-live="polite"></div>
+
+    <div class="bench-area" id="bench-area" hidden>
+      <section class="card hero-fig" id="hero-fig" aria-labelledby="hf-title"></section>
+
+      <h2 class="visually-hidden">Key results</h2>
+      <div class="stat-row kpis" id="kpis"></div>
+
+      <div class="chart-grid">
+        <figure class="chart" id="fig-speedup" aria-labelledby="t-speedup">
+          <figcaption>
+            <h2 class="chart-title" id="t-speedup"><span>Speedup by workload</span></h2>
+            <p class="chart-sub" data-sub></p>
+          </figcaption>
+          <div class="chart-tools">
+            <div class="seg" role="group" aria-label="Metric">
+              <button type="button" data-metric="rps" aria-pressed="true">Throughput</button>
+              <button type="button" data-metric="cpu_us_per_op" aria-pressed="false">CPU / op</button>
+              <button type="button" data-metric="p99_ms" aria-pressed="false">p99</button>
+            </div>
+            <button class="tbl-btn" type="button" aria-pressed="false" data-table-toggle>Table</button>
+          </div>
+          <div class="chart-legend" data-legend></div>
+          <div class="chart-body" data-body></div>
+          <div class="chart-table" data-table hidden></div>
+        </figure>
+
+        <figure class="chart" id="fig-throughput" aria-labelledby="t-throughput">
+          <figcaption>
+            <h2 class="chart-title" id="t-throughput"><span>Throughput</span></h2>
+            <p class="chart-sub" data-sub></p>
+          </figcaption>
+          <div class="chart-tools">
+            <button class="tbl-btn" type="button" aria-pressed="false" data-table-toggle>Table</button>
+          </div>
+          <div class="chart-legend" data-legend></div>
+          <div class="chart-body" data-body></div>
+          <div class="chart-table" data-table hidden></div>
+        </figure>
+
+        <div class="chart-grid two">
+          <figure class="chart" id="fig-latency" aria-labelledby="t-latency">
+            <figcaption>
+              <h2 class="chart-title" id="t-latency"><span>Latency</span></h2>
+              <p class="chart-sub" data-sub></p>
+            </figcaption>
+            <div class="chart-tools">
+              <div class="seg" role="group" aria-label="Percentile">
+                <button type="button" data-metric="p50_ms" aria-pressed="false">p50</button>
+                <button type="button" data-metric="p99_ms" aria-pressed="true">p99</button>
+              </div>
+              <button class="tbl-btn" type="button" aria-pressed="false" data-table-toggle>Table</button>
+            </div>
+            <div class="chart-legend" data-legend></div>
+            <div class="chart-body" data-body></div>
+            <div class="chart-table" data-table hidden></div>
+          </figure>
+
+          <figure class="chart" id="fig-cpu" aria-labelledby="t-cpu">
+            <figcaption>
+              <h2 class="chart-title" id="t-cpu"><span>CPU per operation</span></h2>
+              <p class="chart-sub" data-sub></p>
+            </figcaption>
+            <div class="chart-tools">
+              <button class="tbl-btn" type="button" aria-pressed="false" data-table-toggle>Table</button>
+            </div>
+            <div class="chart-legend" data-legend></div>
+            <div class="chart-body" data-body></div>
+            <div class="chart-table" data-table hidden></div>
+          </figure>
+        </div>
+
+        <figure class="chart" id="fig-persist" aria-labelledby="t-persist">
+          <figcaption>
+            <h2 class="chart-title" id="t-persist"><span>Persistence: BGSAVE</span></h2>
+            <p class="chart-sub" data-sub></p>
+          </figcaption>
+          <div class="chart-tools">
+            <button class="tbl-btn" type="button" aria-pressed="false" data-table-toggle>Table</button>
+          </div>
+          <div class="chart-legend" data-legend></div>
+          <div class="chart-body" data-body></div>
+          <div class="chart-table" data-table hidden></div>
+        </figure>
+
+        <figure class="chart" id="fig-history" aria-labelledby="t-history">
+          <figcaption>
+            <h2 class="chart-title" id="t-history"><span>History</span></h2>
+            <p class="chart-sub" data-sub></p>
+          </figcaption>
+          <div class="chart-tools">
+            <button class="tbl-btn" type="button" aria-pressed="false" data-table-toggle>Table</button>
+          </div>
+          <div class="chart-legend" data-legend></div>
+          <div class="chart-body" data-body></div>
+          <div class="chart-table" data-table hidden></div>
+        </figure>
+      </div>
+    </div>
+
+    <h2 class="bench-section-title" id="methodology-title">Methodology</h2>
+    <section class="card method" id="methodology" aria-labelledby="methodology-title">
+      <div id="env-block" hidden>
+        <h3 style="margin-top:0">Environment of the selected dataset</h3>
+        <dl class="env" id="env"></dl>
+        <h3>Builds compared</h3>
+        <ul class="arms-list" id="arms"></ul>
+      </div>
+
+      <h3 id="how-title">How the Windows CI numbers are produced</h3>
+      <p>Benchmarks run with <a href="https://github.com/ahmedawachi/redis-windows/blob/main/ci/bench.sh"><code>ci/bench.sh</code></a> in the <a href="https://github.com/ahmedawachi/redis-windows/actions/workflows/verify.yml">Verify workflow</a>. Each toolchain gets one <code>windows-latest</code> runner; the stock and fork packages are benchmarked on it one repetition at a time, interleaved, three times over, and the page shows the median of the repetitions. BGSAVE runs several saves per repetition, so its figures are the median of every save.</p>
+      <div class="codeblock">
+<pre><code>for rep in 1 2 3; do
+  BENCH_LABEL=baseline BENCH_REPS=1 BENCH_REP_START=$rep bash ci/bench.sh "packages/$base" "$csv"
+  BENCH_LABEL=fork BENCH_REPS=1 BENCH_REP_START=$rep bash ci/bench.sh "packages/$fork" "$csv"
+done
+bash ci/bench.sh --compare "$csv" baseline fork</code></pre>
+        <button class="copy-btn" type="button" data-copy>Copy</button>
+      </div>
+      <p>Sizes used by the Windows job: <code>BENCH_N_SMALL=20000</code>, <code>BENCH_N_PIPE=200000</code>, <code>BENCH_N_LARGE=300</code>, <code>BENCH_POPULATE_MB="64 256"</code>, <code>BENCH_BGSAVE_REPS=3</code>.</p>
+      <ul>
+        <li><strong>small</strong>: <code>SET</code>, <code>GET</code>, <code>HSET</code> of 3-byte values at <code>-P1 -c1</code> and at <code>-P16 -c50</code>.</li>
+        <li><strong>large</strong>: <code>SET</code> and <code>GET</code> of a ~1.9 MB value at <code>-c4</code>.</li>
+        <li><strong>hmget</strong>: <code class="brk">HMGET key absexp sldexp data</code> with a ~1.9 MB <code>data</code> field, at <code>-c1</code> and <code>-c2</code>: the IDistributedCache read shape that failed in production.</li>
+        <li><strong>hset</strong>: <code class="brk">HSET key absexp sldexp data</code> with a ~1.9 MB <code>data</code> field.</li>
+        <li><strong>bgsave</strong>: <code>DEBUG POPULATE</code> to each dataset size, then repeated <code>BGSAVE</code>s: fork time (the main-thread stall), BGSAVE wall time and child CPU.</li>
+      </ul>
+      <p>Metrics come from <code>redis-benchmark</code> (throughput, average, p50, p99 and max latency) and from the server's own <code>INFO cpu</code>: server CPU is user + sys, and CPU per operation is (user + sys) divided by the number of requests. User CPU is never reported alone.</p>
+
+      <h3>Caveats</h3>
+      <ul>
+        <li>Both builds run on the same runner, interleaved, so they see the same machine. Differences under about 10% are within runner noise; bars and tiles inside that band are shown as neutral.</li>
+        <li>A proxy measurement on a non-Windows host is not a Windows measurement. Proxy datasets are badged on every chart; Windows numbers come from the benchmark job.</li>
+      </ul>
+      <p id="notes-wrap" hidden><strong>Notes recorded with this dataset:</strong></p>
+      <ul id="notes"></ul>
+      <p><a class="btn btn-quiet" href="data/bench.json" download>Download data/bench.json</a></p>
+    </section>
+  </div>
+</main>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <div class="foot-grid">
+      <div>
+        <a class="brand" href="./"><img src="assets/favicon.svg" alt="" width="28" height="28"><span>redis<span class="accent-text">-windows</span></span></a>
+        <p style="margin-top:12px">Redis for Windows: optimized, self-healing, crash-hardened.</p>
+      </div>
+      <div>
+        <h2>Project</h2>
+        <ul>
+          <li><a href="https://github.com/ahmedawachi/redis-windows/releases">Releases</a></li>
+          <li><a href="setup.html">60-second setup</a></li>
+          <li><a href="benchmarks.html">Benchmarks</a></li>
+          <li><a href="docs.html">Documentation</a></li>
+          <li><a href="https://github.com/ahmedawachi/redis-windows">Source on GitHub</a></li>
+          <li><a href="https://github.com/ahmedawachi/redis-windows/security/advisories/new">Report a security issue</a></li>
+        </ul>
+      </div>
+      <div>
+        <h2>Credits</h2>
+        <p><a href="https://github.com/redis-windows/redis-windows">redis-windows</a>, the project this fork builds on, and its maintainers.</p>
+        <p><a href="https://github.com/redis/redis">Redis</a>, and the <a href="https://www.msys2.org">MSYS2</a> and <a href="https://cygwin.com">Cygwin</a> projects whose runtimes make it run on Windows.</p>
+      </div>
+    </div>
+    <div class="fine">
+      <p>The service wrapper and the build tooling in this repository are licensed under the <a href="https://github.com/ahmedawachi/redis-windows/blob/main/LICENSE">Apache License 2.0</a>. Redis itself is licensed by Redis Ltd. under your choice of RSALv2, SSPLv1 or AGPLv3, and the patches in <code>patches/redis/</code> apply to that source. Release zips also contain the MSYS2/Cygwin runtime and OpenSSL, each under its own license. <a href="docs.html?doc=licensing">Licensing</a> has the details.</p>
+      <p>Redis is a registered trademark of Redis Ltd. Any rights therein are reserved to Redis Ltd. This project is not affiliated with, endorsed by, or sponsored by Redis Ltd. Redis officially supports Linux; builds from this repository are community-maintained, so test them against your own workload before relying on them in production.</p>
+    </div>
+  </div>
+</footer>
+</body>
+</html>

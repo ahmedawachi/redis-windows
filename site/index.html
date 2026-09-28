@@ -1,0 +1,323 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>redis-windows · Redis for Windows: optimized, self-healing, crash-hardened</title>
+<meta name="description" content="Redis for Windows, built from the official source, compiled with optimizations, run by a service that heals itself, and hardened against the out-of-memory crash that takes the stock build down.">
+<link rel="canonical" href="https://ahmedawachi.github.io/redis-windows/">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#0B1020">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="redis-windows">
+<meta property="og:title" content="redis-windows · Redis for Windows: optimized, self-healing, crash-hardened">
+<meta property="og:description" content="Built from the official Redis source, compiled at -O2, run by a service that heals itself, and hardened against the out-of-memory crash that takes the stock build down.">
+<meta property="og:url" content="https://ahmedawachi.github.io/redis-windows/">
+<meta property="og:image" content="https://ahmedawachi.github.io/redis-windows/assets/social-preview.png">
+<meta property="og:image:width" content="1280">
+<meta property="og:image:height" content="640">
+<meta property="og:image:alt" content="redis-windows: Redis for Windows, optimized, self-healing, crash-hardened.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="redis-windows">
+<meta name="twitter:description" content="Redis for Windows: optimized, self-healing, crash-hardened.">
+<meta name="twitter:image" content="https://ahmedawachi.github.io/redis-windows/assets/social-preview.png">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="assets/site.css">
+<script src="js/theme.js"></script>
+<script type="module" src="js/home.js"></script>
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="./" aria-current="page"><img src="assets/favicon.svg" alt="" width="28" height="28"><span>redis<span class="accent-text">-windows</span></span></a>
+    <nav id="site-nav" class="nav" aria-label="Main">
+      <a href="setup.html">Setup</a>
+      <a href="benchmarks.html">Benchmarks</a>
+      <a href="docs.html">Docs</a>
+      <a href="https://github.com/ahmedawachi/redis-windows">GitHub</a>
+    </nav>
+    <button class="icon-btn theme-btn" type="button" data-theme-toggle aria-label="Theme"></button>
+    <button class="icon-btn menu-btn" type="button" data-menu-toggle aria-expanded="false" aria-controls="site-nav" aria-label="Menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+  </div>
+</header>
+
+<main id="main">
+  <section class="hero" aria-labelledby="hero-title">
+    <svg class="heartbeat" viewBox="0 0 1280 70" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+      <defs><linearGradient id="hb" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#F43F5E"/><stop offset="1" stop-color="#FB923C"/></linearGradient></defs>
+      <path d="M0 40 L520 40 L548 40 L562 12 L578 68 L594 22 L606 40 L760 40 L786 40 L798 2 L814 66 L830 40 L1280 40" pathLength="1000" fill="none" stroke="url(#hb)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>
+    </svg>
+    <div class="wrap hero-inner">
+      <div>
+        <h1 id="hero-title">redis<span class="accent-text">-windows</span></h1>
+        <p class="tagline">Redis for Windows: optimized, self-healing, crash-hardened.</p>
+        <p class="lead">Built from the official source, compiled with optimizations, run by a service that heals itself, and hardened against the out-of-memory crash that takes the stock build down.</p>
+        <ul class="chips" aria-label="Highlights">
+          <li>-O2 build</li><li>soft OOM</li><li>self-healing service</li><li>real memory metrics</li>
+        </ul>
+        <div class="cta-row">
+          <a class="btn btn-primary" href="https://github.com/ahmedawachi/redis-windows/releases"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>Download</a>
+          <a class="btn btn-ghost" href="setup.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2M10 2h4"/></svg>60-second setup</a>
+          <a class="btn btn-ghost" href="benchmarks.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Benchmarks</a>
+        </div>
+      </div>
+      <div class="tiles" aria-hidden="true">
+        <i class="tile on pulse"></i><i class="tile on"></i><i class="tile on"></i><i class="tile"></i><i class="tile"></i><i class="tile on pulse"></i><i class="tile"></i>
+        <i class="tile on"></i><i class="tile on"></i><i class="tile"></i><i class="tile on"></i><i class="tile on fail"></i><i class="tile"></i><i class="tile on"></i>
+        <i class="tile on"></i><i class="tile"></i><i class="tile on"></i><i class="tile"></i><i class="tile on"></i><i class="tile"></i><i class="tile"></i>
+        <i class="tile"></i><i class="tile on"></i><i class="tile"></i><i class="tile on"></i><i class="tile"></i><i class="tile on"></i><i class="tile on"></i>
+        <i class="tile on"></i><i class="tile"></i><i class="tile on"></i><i class="tile"></i><i class="tile on"></i><i class="tile"></i><i class="tile"></i>
+      </div>
+    </div>
+    <div class="wrap" id="hero-stats-wrap" hidden>
+      <h2 class="visually-hidden">Measured results</h2>
+      <div class="stat-row hero-stats" id="hero-stats"></div>
+      <div class="hero-stats-meta" id="hero-stats-meta"></div>
+    </div>
+    <div style="height:104px" aria-hidden="true"></div>
+  </section>
+
+  <section class="section wrap" aria-labelledby="why-title">
+    <div class="section-head">
+      <span class="kicker">Why this fork</span>
+      <h2 id="why-title">Two problems, found under real production load</h2>
+      <p><a href="https://github.com/redis-windows/redis-windows">redis-windows</a> does the hard part: it builds every official Redis release for Windows under MSYS2 and Cygwin and ships a Windows service to run it. Running it under real production load exposed two problems.</p>
+    </div>
+    <div class="grid-2">
+      <article class="card why">
+        <span class="num" aria-hidden="true">1</span>
+        <h3>No compiler optimization at all</h3>
+        <p><strong>The binaries were compiled with <code>-O0</code>.</strong> The build passes it in <code>CFLAGS</code>, which lands after Redis's own <code>-O3</code> and overrides it for Redis and every bundled library.</p>
+      </article>
+      <article class="card why">
+        <span class="num" aria-hidden="true">2</span>
+        <h3>One refused allocation, and nothing brought it back</h3>
+        <p>Windows declined to commit memory for a ~1.9 MB reply buffer while the dataset was only ~64 MB. Redis aborted, as it always does when <code>malloc</code> fails. The service wrapper noticed, logged a warning, and kept reporting <em>Running</em>, so Windows' own service recovery never kicked in. <strong>The cache stayed down for over half an hour.</strong></p>
+      </article>
+    </div>
+    <p style="margin-top:18px;color:var(--ink-2)">This fork fixes both, and everything found while tracing them. Each change is small, documented and tested, so the whole series can be offered back upstream.</p>
+  </section>
+
+  <section class="section wrap" aria-labelledby="hl-title">
+    <div class="section-head">
+      <span class="kicker">Highlights</span>
+      <h2 id="hl-title">What you get</h2>
+    </div>
+    <div class="grid-3">
+      <article class="card feature">
+        <h3><span class="f-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="url(#fi)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><defs><linearGradient id="fi" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#F43F5E"/><stop offset="1" stop-color="#FB923C"/></linearGradient></defs><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg></span>Optimized build</h3>
+        <p>Compiled at <code>-O2</code> (upstream ships <code>-O0</code>), without LTO or CPU-specific flags so it runs on any x64 host, including Hyper-V guests in compatibility mode.<span id="opt-measured" hidden></span> Measured results are on the <a href="benchmarks.html">benchmarks page</a>.</p>
+      </article>
+      <article class="card feature">
+        <h3><span class="f-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="url(#fi)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6z"/><path d="m9 12 2 2 4-4"/></svg></span>Soft out-of-memory handling</h3>
+        <p>When Windows refuses memory for a <strong>client buffer</strong>, the fork disconnects that one client instead of killing the server. Clients such as StackExchange.Redis simply reconnect. Allocations that protect your data (keyspace, persistence, replication) still stop the server, exactly as before.</p>
+        <p class="f-tags"><code>oom-soft-client-buffers yes</code><code>client_oom_disconnections</code></p>
+      </article>
+      <article class="card feature">
+        <h3><span class="f-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="url(#fi)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l2-5 4 10 2-5h6"/></svg></span>A service that heals itself</h3>
+        <p>The rewritten <code>RedisService.exe</code> supervises <code>redis-server</code>. It restarts it after a crash with exponential backoff, probes its health, and caps crash loops by exiting so Windows service recovery takes over. It shuts down with an authenticated <code>SHUTDOWN</code> that actually saves your data, and a Job Object makes sure Redis never outlives the service.</p>
+      </article>
+      <article class="card feature">
+        <h3><span class="f-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="url(#fi)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M6 17V9M11 17V5M16 17v-6M21 17v-3"/></svg></span>Memory numbers you can trust</h3>
+        <p>On stock Windows builds <code>used_memory_rss</code> just repeats <code>used_memory</code>, and the "Fork CoW" line Redis logs after each snapshot always says 0 MB. The fork reports the real figures from Windows: process private bytes, working set, and system commit total and limit. It also writes the host's commit state into the log if an allocation is ever refused.</p>
+      </article>
+      <article class="card feature">
+        <h3><span class="f-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="url(#fi)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="5" height="16" rx="1.5"/><rect x="10" y="4" width="5" height="16" rx="1.5"/><rect x="17" y="4" width="4" height="16" rx="1.5"/></svg></span>No multi-MB reply blocks</h3>
+        <p>Large replies to network clients are assembled from blocks of at most 256 KB instead of one contiguous allocation the size of the value. That exact kind of allocation was the one Windows refused. The bytes on the wire are unchanged.</p>
+        <p class="f-tags"><code>reply-node-max-bytes</code></p>
+      </article>
+      <article class="card feature">
+        <h3><span class="f-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="url(#fi)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 12h18M12 3v18"/></svg></span>Descriptor-limit guard</h3>
+        <p>The <code>select()</code> event loop on these runtimes overwrites memory once a descriptor reaches <code>FD_SETSIZE</code> (1024), yet <code>maxclients</code> was allowed to reach 3,168. The fork clamps <code>maxclients</code> to what the event loop can safely handle and logs that it did.</p>
+      </article>
+    </div>
+  </section>
+
+  <section class="section wrap" aria-labelledby="cmp-title">
+    <div class="section-head">
+      <span class="kicker">Side by side</span>
+      <h2 id="cmp-title">Fork vs. upstream</h2>
+    </div>
+    <div class="card" style="overflow:hidden">
+      <table class="compare">
+        <thead><tr><th scope="col"><span class="visually-hidden">Area</span></th><th scope="col">Upstream</th><th scope="col" class="fork-col">This fork</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">Compiler optimization</th><td data-label="Upstream"><code>-O0</code></td><td data-label="This fork"><code>-O2</code>, no LTO, portable x64</td></tr>
+          <tr><th scope="row">Crash of <code>redis-server</code></th><td data-label="Upstream">logged, service keeps saying <em>Running</em></td><td data-label="This fork">restarted with backoff; a crash loop hands over to Windows service recovery</td></tr>
+          <tr><th scope="row">Service stop</th><td data-label="Upstream">the wrapper sends a malformed command, then force-kills Redis after 5 s</td><td data-label="This fork">authenticated <code>SHUTDOWN</code> (password and TLS aware) with a configurable timeout</td></tr>
+          <tr><th scope="row">Refused client-buffer allocation</th><td data-label="Upstream">whole server aborts</td><td data-label="This fork">that client is disconnected, the server stays up</td></tr>
+          <tr><th scope="row">Memory reporting</th><td data-label="Upstream">RSS and fragmentation are placeholders</td><td data-label="This fork">real Windows private bytes, working set and system commit</td></tr>
+          <tr><th scope="row"><code>maxclients</code> above 1024 on <code>select()</code></th><td data-label="Upstream">silent memory corruption</td><td data-label="This fork">clamped and logged</td></tr>
+          <tr><th scope="row">Releases</th><td data-label="Upstream">every new Redis tag auto-published as <em>latest</em></td><td data-label="This fork">new tags build as pre-releases; releases are deliberate</td></tr>
+          <tr><th scope="row">Verification</th><td data-label="Upstream">build plus one <code>SET</code>/<code>GET</code></td><td data-label="This fork">smoke gate, Redis test subset, baseline-vs-fork benchmarks, service integration tests</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="section wrap" aria-labelledby="built-title">
+    <div class="section-head">
+      <span class="kicker">How it's built</span>
+      <h2 id="built-title">From an official tag to a verified release</h2>
+      <p>Everything runs on GitHub Actions. New upstream Redis tags are picked up automatically and built as <strong>pre-releases</strong>. Nothing becomes <em>latest</em> without a deliberate release.</p>
+    </div>
+    <figure class="card pipeline" style="margin:0">
+      <svg class="wide" viewBox="0 0 1040 300" role="img" aria-labelledby="pl-t pl-d">
+        <title id="pl-t">Build pipeline</title>
+        <desc id="pl-d">An official Redis release tag goes through the patch series, then into an MSYS2 build and a Cygwin build at -O2. Both are verified by a smoke gate, a Redis test subset, stock-vs-fork benchmarks and service integration tests, and then released as zips with SHA256, build-info and debug symbols.</desc>
+        <defs>
+          <linearGradient id="pl-acc" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#F43F5E"/><stop offset="1" stop-color="#FB923C"/></linearGradient>
+          <marker id="pl-ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="pl-arrow" d="M0 0 L10 5 L0 10 z"/></marker>
+        </defs>
+        <rect class="pl-node" x="10" y="115" width="140" height="70" rx="12"/>
+        <text class="pl-text" x="80" y="145" text-anchor="middle">Official Redis</text>
+        <text class="pl-sub" x="80" y="165" text-anchor="middle">release tag</text>
+        <path class="pl-edge" d="M150 150 H186" marker-end="url(#pl-ar)"/>
+        <rect class="pl-node" x="190" y="115" width="140" height="70" rx="12"/>
+        <text class="pl-text" x="260" y="145" text-anchor="middle">Patch series</text>
+        <text class="pl-sub" x="260" y="165" text-anchor="middle">patches/redis</text>
+        <path class="pl-edge" d="M330 150 C352 150 352 95 374 95" marker-end="url(#pl-ar)"/>
+        <path class="pl-edge" d="M330 150 C352 150 352 205 374 205" marker-end="url(#pl-ar)"/>
+        <rect class="pl-node" x="378" y="64" width="140" height="62" rx="12"/>
+        <text class="pl-text" x="448" y="91" text-anchor="middle">MSYS2 build</text>
+        <text class="pl-sub" x="448" y="110" text-anchor="middle">-O2</text>
+        <rect class="pl-node" x="378" y="174" width="140" height="62" rx="12"/>
+        <text class="pl-text" x="448" y="201" text-anchor="middle">Cygwin build</text>
+        <text class="pl-sub" x="448" y="220" text-anchor="middle">-O2</text>
+        <path class="pl-edge" d="M518 95 C540 95 540 150 562 150" marker-end="url(#pl-ar)"/>
+        <path class="pl-edge" d="M518 205 C540 205 540 150 562 150" marker-end="url(#pl-ar)"/>
+        <rect class="pl-group" x="566" y="18" width="270" height="264" rx="14"/>
+        <text class="pl-group-label" x="586" y="44">VERIFY</text>
+        <rect class="pl-node" x="586" y="58" width="230" height="44" rx="10"/>
+        <text class="pl-text" x="701" y="85" text-anchor="middle">Smoke gate</text>
+        <rect class="pl-node" x="586" y="112" width="230" height="44" rx="10"/>
+        <text class="pl-text" x="701" y="139" text-anchor="middle">Redis test subset</text>
+        <rect class="pl-node" x="586" y="166" width="230" height="44" rx="10"/>
+        <text class="pl-text" x="701" y="193" text-anchor="middle">Benchmarks: stock vs fork</text>
+        <rect class="pl-node" x="586" y="220" width="230" height="44" rx="10"/>
+        <text class="pl-text" x="701" y="247" text-anchor="middle">Service integration</text>
+        <path class="pl-edge" d="M836 150 H872" marker-end="url(#pl-ar)"/>
+        <rect class="pl-node accent" x="876" y="95" width="154" height="110" rx="14"/>
+        <text class="pl-text" x="953" y="130" text-anchor="middle">Release</text>
+        <text class="pl-sub" x="953" y="152" text-anchor="middle">zips + SHA256</text>
+        <text class="pl-sub" x="953" y="170" text-anchor="middle">+ build-info</text>
+        <text class="pl-sub" x="953" y="188" text-anchor="middle">+ debug symbols</text>
+      </svg>
+      <svg class="tall" viewBox="0 0 320 720" role="img" aria-labelledby="pl-t2 pl-d2">
+        <title id="pl-t2">Build pipeline</title>
+        <desc id="pl-d2">An official Redis release tag goes through the patch series, then into an MSYS2 build and a Cygwin build at -O2. Both are verified by a smoke gate, a Redis test subset, stock-vs-fork benchmarks and service integration tests, and then released as zips with SHA256, build-info and debug symbols.</desc>
+        <defs>
+          <marker id="pl-ar2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="pl-arrow" d="M0 0 L10 5 L0 10 z"/></marker>
+        </defs>
+        <rect class="pl-node" x="60" y="6" width="200" height="60" rx="12"/>
+        <text class="pl-text" x="160" y="32" text-anchor="middle">Official Redis</text>
+        <text class="pl-sub" x="160" y="51" text-anchor="middle">release tag</text>
+        <path class="pl-edge" d="M160 66 V92" marker-end="url(#pl-ar2)"/>
+        <rect class="pl-node" x="60" y="96" width="200" height="60" rx="12"/>
+        <text class="pl-text" x="160" y="122" text-anchor="middle">Patch series</text>
+        <text class="pl-sub" x="160" y="141" text-anchor="middle">patches/redis</text>
+        <path class="pl-edge" d="M160 156 C160 170 82 168 82 184" marker-end="url(#pl-ar2)"/>
+        <path class="pl-edge" d="M160 156 C160 170 238 168 238 184" marker-end="url(#pl-ar2)"/>
+        <rect class="pl-node" x="10" y="188" width="144" height="58" rx="12"/>
+        <text class="pl-text" x="82" y="213" text-anchor="middle">MSYS2 build</text>
+        <text class="pl-sub" x="82" y="232" text-anchor="middle">-O2</text>
+        <rect class="pl-node" x="166" y="188" width="144" height="58" rx="12"/>
+        <text class="pl-text" x="238" y="213" text-anchor="middle">Cygwin build</text>
+        <text class="pl-sub" x="238" y="232" text-anchor="middle">-O2</text>
+        <path class="pl-edge" d="M82 246 C82 262 160 260 160 276" marker-end="url(#pl-ar2)"/>
+        <path class="pl-edge" d="M238 246 C238 262 160 260 160 276" marker-end="url(#pl-ar2)"/>
+        <rect class="pl-group" x="20" y="280" width="280" height="262" rx="14"/>
+        <text class="pl-group-label" x="40" y="305">VERIFY</text>
+        <rect class="pl-node" x="40" y="318" width="240" height="44" rx="10"/>
+        <text class="pl-text" x="160" y="345" text-anchor="middle">Smoke gate</text>
+        <rect class="pl-node" x="40" y="372" width="240" height="44" rx="10"/>
+        <text class="pl-text" x="160" y="399" text-anchor="middle">Redis test subset</text>
+        <rect class="pl-node" x="40" y="426" width="240" height="44" rx="10"/>
+        <text class="pl-text" x="160" y="453" text-anchor="middle">Benchmarks: stock vs fork</text>
+        <rect class="pl-node" x="40" y="480" width="240" height="44" rx="10"/>
+        <text class="pl-text" x="160" y="507" text-anchor="middle">Service integration</text>
+        <path class="pl-edge" d="M160 542 V574" marker-end="url(#pl-ar2)"/>
+        <rect class="pl-node accent" x="50" y="578" width="220" height="130" rx="14"/>
+        <text class="pl-text" x="160" y="614" text-anchor="middle">Release</text>
+        <text class="pl-sub" x="160" y="638" text-anchor="middle">zips + SHA256</text>
+        <text class="pl-sub" x="160" y="658" text-anchor="middle">+ build-info</text>
+        <text class="pl-sub" x="160" y="678" text-anchor="middle">+ debug symbols</text>
+      </svg>
+    </figure>
+    <div class="build-notes prose">
+      <p><strong>Actions → Manual Build Redis → Run workflow</strong> takes a Redis version (<code>redis_version</code>), a fork revision (<code>fork_revision</code>), an optimization level (<code>optimization</code>, default <code>-O2</code>), TLS on/off (<code>build_tls</code>) and the release type (<code>prerelease</code>, <code>make_latest</code>), and produces a release tagged <code class="brk">&lt;redis version&gt;-fork.&lt;revision&gt;</code>:</p>
+      <ul>
+        <li><code>…-msys2.zip</code> and <code>…-cygwin.zip</code>, each with or without the service</li>
+        <li>a <code>-debug</code> zip with unstripped binaries for crash analysis</li>
+        <li>a <code>build-info</code> file recording the exact compiler, runtime and patches used</li>
+      </ul>
+      <p>The patch series and how to test each patch are described in <a href="docs.html?doc=patches">the patches guide</a>.</p>
+    </div>
+  </section>
+
+  <section class="section wrap" aria-labelledby="road-title">
+    <div class="section-head">
+      <span class="kicker">Roadmap</span>
+      <h2 id="road-title">Where it's going</h2>
+      <p><strong style="color:var(--ink)">Shipping now:</strong> the optimized build, the seven Redis patches, the self-healing service, double-click setup, and the verification pipeline.</p>
+    </div>
+    <div class="grid-2">
+      <article class="card road">
+        <h3><span class="pill">Next</span></h3>
+        <ul>
+          <li>First Windows benchmark results, published in the README</li>
+          <li>Zero-copy replies for large hash field values (removes the large allocation entirely)</li>
+          <li>Allocator tuning for the MSYS2/Cygwin <code>malloc</code>, so freed multi-MB blocks are reused instead of committed afresh</li>
+          <li>Socket-pair notifiers in place of pipes, removing a polling thread from every event-loop wait</li>
+          <li>Profile-guided optimization trained on real workloads</li>
+        </ul>
+      </article>
+      <article class="card road">
+        <h3><span class="pill">Later</span></h3>
+        <ul>
+          <li>A native Winsock event backend, in place of the runtime's emulated <code>select()</code></li>
+          <li>Snapshots without <code>fork()</code>, which the MSYS2/Cygwin runtimes emulate by copying the whole process</li>
+        </ul>
+      </article>
+      <article class="card road explore">
+        <h3><span class="pill">Exploring</span></h3>
+        <p><strong>A Redis-protocol-compatible server written in Rust, natively for Windows, fully open source.</strong> No POSIX emulation layer, no <code>fork()</code>, native I/O completion ports. It would start from the commands real Windows deployments use most (strings, hashes, expiry, LRU eviction, RESP2/RESP3) and grow from there. This is an idea we want to explore, not a commitment yet; if it interests you, open a discussion.</p>
+      </article>
+    </div>
+    <p style="margin-top:18px;color:var(--ink-2)">The full, reasoned plan, including what is deliberately <em>not</em> being done and why, is in <a href="docs.html?doc=roadmap">the roadmap</a>.</p>
+  </section>
+</main>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <div class="foot-grid">
+      <div>
+        <a class="brand" href="./"><img src="assets/favicon.svg" alt="" width="28" height="28"><span>redis<span class="accent-text">-windows</span></span></a>
+        <p style="margin-top:12px">Redis for Windows: optimized, self-healing, crash-hardened.</p>
+      </div>
+      <div>
+        <h2>Project</h2>
+        <ul>
+          <li><a href="https://github.com/ahmedawachi/redis-windows/releases">Releases</a></li>
+          <li><a href="setup.html">60-second setup</a></li>
+          <li><a href="benchmarks.html">Benchmarks</a></li>
+          <li><a href="docs.html">Documentation</a></li>
+          <li><a href="https://github.com/ahmedawachi/redis-windows">Source on GitHub</a></li>
+          <li><a href="https://github.com/ahmedawachi/redis-windows/security/advisories/new">Report a security issue</a></li>
+        </ul>
+      </div>
+      <div>
+        <h2>Credits</h2>
+        <p><a href="https://github.com/redis-windows/redis-windows">redis-windows</a>, the project this fork builds on, and its maintainers.</p>
+        <p><a href="https://github.com/redis/redis">Redis</a>, and the <a href="https://www.msys2.org">MSYS2</a> and <a href="https://cygwin.com">Cygwin</a> projects whose runtimes make it run on Windows.</p>
+      </div>
+    </div>
+    <div class="fine">
+      <p>The service wrapper and the build tooling in this repository are licensed under the <a href="https://github.com/ahmedawachi/redis-windows/blob/main/LICENSE">Apache License 2.0</a>. Redis itself is licensed by Redis Ltd. under your choice of RSALv2, SSPLv1 or AGPLv3, and the patches in <code>patches/redis/</code> apply to that source. Release zips also contain the MSYS2/Cygwin runtime and OpenSSL, each under its own license. <a href="docs.html?doc=licensing">Licensing</a> has the details.</p>
+      <p>Redis is a registered trademark of Redis Ltd. Any rights therein are reserved to Redis Ltd. This project is not affiliated with, endorsed by, or sponsored by Redis Ltd. Redis officially supports Linux; builds from this repository are community-maintained, so test them against your own workload before relying on them in production.</p>
+    </div>
+  </div>
+</footer>
+</body>
+</html>

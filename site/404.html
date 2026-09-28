@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- GitHub Pages serves this page for any missing path, at any depth, so every relative
+     link below is anchored at the project site root. The base is static so the browser's
+     preloader resolves against it too; the script only corrects it when the site is
+     served from a domain root instead. -->
+<base href="/redis-windows/">
+<script>
+  (function () {
+    if (location.pathname.indexOf("/redis-windows/") !== 0) document.querySelector("base").href = "/";
+  })();
+</script>
+<title>Not found · redis-windows</title>
+<meta name="robots" content="noindex">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#0B1020">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="assets/site.css">
+<script src="js/theme.js"></script>
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="./"><img src="assets/favicon.svg" alt="" width="28" height="28"><span>redis<span class="accent-text">-windows</span></span></a>
+    <nav id="site-nav" class="nav" aria-label="Main">
+      <a href="setup.html">Setup</a>
+      <a href="benchmarks.html">Benchmarks</a>
+      <a href="docs.html">Docs</a>
+      <a href="https://github.com/ahmedawachi/redis-windows">GitHub</a>
+    </nav>
+    <button class="icon-btn theme-btn" type="button" data-theme-toggle aria-label="Theme"></button>
+    <button class="icon-btn menu-btn" type="button" data-menu-toggle aria-expanded="false" aria-controls="site-nav" aria-label="Menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+  </div>
+</header>
+
+<main id="main" class="hero nf">
+  <div class="wrap hero-inner">
+    <div>
+      <span class="eyebrow">404</span>
+      <h1 style="font-size:clamp(2.4rem,1.6rem + 4vw,4rem)">This key has <span class="accent-text">expired</span></h1>
+      <p class="lead">The page you asked for is not here. It may have moved, or the link may be mistyped.</p>
+      <div class="term-card" aria-label="A redis-cli session">
+        <div><span class="dim">127.0.0.1:6379&gt;</span> GET page</div>
+        <div>(nil)</div>
+        <div><span class="dim">127.0.0.1:6379&gt;</span> EXISTS <span id="nf-path"></span></div>
+        <div>(integer) 0</div>
+      </div>
+      <div class="cta-row">
+        <a class="btn btn-primary" href="./">Home</a>
+        <a class="btn btn-ghost" href="setup.html">60-second setup</a>
+        <a class="btn btn-ghost" href="benchmarks.html">Benchmarks</a>
+        <a class="btn btn-ghost" href="docs.html">Docs</a>
+      </div>
+    </div>
+    <div class="tiles" aria-hidden="true">
+      <i class="tile on"></i><i class="tile on"></i><i class="tile"></i><i class="tile on"></i><i class="tile"></i><i class="tile on"></i><i class="tile"></i>
+      <i class="tile on"></i><i class="tile"></i><i class="tile on"></i><i class="tile"></i><i class="tile on fail"></i><i class="tile"></i><i class="tile on"></i>
+      <i class="tile"></i><i class="tile on"></i><i class="tile"></i><i class="tile on"></i><i class="tile"></i><i class="tile on"></i><i class="tile"></i>
+      <i class="tile on"></i><i class="tile"></i><i class="tile on"></i><i class="tile"></i><i class="tile on"></i><i class="tile"></i><i class="tile on"></i>
+    </div>
+  </div>
+</main>
+<script>
+  (function () {
+    var p = document.getElementById("nf-path");
+    if (p) { var path = location.pathname; try { path = decodeURIComponent(path); } catch (e) {} p.textContent = path.slice(0, 80); }
+  })();
+</script>
+</body>
+</html>

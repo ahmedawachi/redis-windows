@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Documentation · redis-windows</title>
+<meta name="description" content="Operations guide, roadmap, the Redis patch series and licensing for redis-windows.">
+<link rel="canonical" href="https://ahmedawachi.github.io/redis-windows/docs.html">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#0B1020">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="redis-windows">
+<meta property="og:title" content="Documentation · redis-windows">
+<meta property="og:description" content="Operations guide, roadmap, the Redis patch series and licensing.">
+<meta property="og:url" content="https://ahmedawachi.github.io/redis-windows/docs.html">
+<meta property="og:image" content="https://ahmedawachi.github.io/redis-windows/assets/social-preview.png">
+<meta property="og:image:width" content="1280">
+<meta property="og:image:height" content="640">
+<meta property="og:image:alt" content="redis-windows: Redis for Windows, optimized, self-healing, crash-hardened.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Documentation · redis-windows">
+<meta name="twitter:description" content="Operations guide, roadmap, the Redis patch series and licensing.">
+<meta name="twitter:image" content="https://ahmedawachi.github.io/redis-windows/assets/social-preview.png">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="assets/site.css">
+<script src="js/theme.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/marked@18.0.14/lib/marked.umd.js" integrity="sha384-2vpGtuKqJvFlwJqYnf/wUMuzUfhUnYBt9oay0e2yaFcq0Dh6/aEbQ8YAOeKGzlYo" crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/dompurify@3.4.16/dist/purify.min.js" integrity="sha384-a7SzOxErzJ3ZpQz0zJ32d67dSitNzPcbfybc/ykU9KJhMgZkwqfSxlhhdJRS+XGL" crossorigin="anonymous"></script>
+<script type="module" src="js/docs.js"></script>
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="./"><img src="assets/favicon.svg" alt="" width="28" height="28"><span>redis<span class="accent-text">-windows</span></span></a>
+    <nav id="site-nav" class="nav" aria-label="Main">
+      <a href="setup.html">Setup</a>
+      <a href="benchmarks.html">Benchmarks</a>
+      <a href="docs.html" aria-current="page">Docs</a>
+      <a href="https://github.com/ahmedawachi/redis-windows">GitHub</a>
+    </nav>
+    <button class="icon-btn theme-btn" type="button" data-theme-toggle aria-label="Theme"></button>
+    <button class="icon-btn menu-btn" type="button" data-menu-toggle aria-expanded="false" aria-controls="site-nav" aria-label="Menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+  </div>
+</header>
+
+<main id="main">
+  <div class="wrap docs-layout">
+    <nav class="toc docs-nav" aria-label="Documentation">
+      <div class="toc-inner">
+        <div>
+          <h2>Documents</h2>
+          <ul id="doc-list" class="doc-list"></ul>
+        </div>
+        <div id="headings-block" class="headings" hidden>
+          <h2>On this page</h2>
+          <ul id="doc-headings"></ul>
+        </div>
+      </div>
+    </nav>
+    <article class="md" id="doc" aria-busy="true">
+      <p class="doc-status">Loading…</p>
+      <noscript><p>This page renders the Markdown documents in the browser. Read them on <a href="https://github.com/ahmedawachi/redis-windows/tree/main/docs">GitHub</a> instead.</p></noscript>
+    </article>
+  </div>
+</main>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <div class="foot-grid">
+      <div>
+        <a class="brand" href="./"><img src="assets/favicon.svg" alt="" width="28" height="28"><span>redis<span class="accent-text">-windows</span></span></a>
+        <p style="margin-top:12px">Redis for Windows: optimized, self-healing, crash-hardened.</p>
+      </div>
+      <div>
+        <h2>Project</h2>
+        <ul>
+          <li><a href="https://github.com/ahmedawachi/redis-windows/releases">Releases</a></li>
+          <li><a href="setup.html">60-second setup</a></li>
+          <li><a href="benchmarks.html">Benchmarks</a></li>
+          <li><a href="docs.html">Documentation</a></li>
+          <li><a href="https://github.com/ahmedawachi/redis-windows">Source on GitHub</a></li>
+          <li><a href="https://github.com/ahmedawachi/redis-windows/security/advisories/new">Report a security issue</a></li>
+        </ul>
+      </div>
+      <div>
+        <h2>Credits</h2>
+        <p><a href="https://github.com/redis-windows/redis-windows">redis-windows</a>, the project this fork builds on, and its maintainers.</p>
+        <p><a href="https://github.com/redis/redis">Redis</a>, and the <a href="https://www.msys2.org">MSYS2</a> and <a href="https://cygwin.com">Cygwin</a> projects whose runtimes make it run on Windows.</p>
+      </div>
+    </div>
+    <div class="fine">
+      <p>The service wrapper and the build tooling in this repository are licensed under the <a href="https://github.com/ahmedawachi/redis-windows/blob/main/LICENSE">Apache License 2.0</a>. Redis itself is licensed by Redis Ltd. under your choice of RSALv2, SSPLv1 or AGPLv3, and the patches in <code>patches/redis/</code> apply to that source. Release zips also contain the MSYS2/Cygwin runtime and OpenSSL, each under its own license. <a href="docs.html?doc=licensing">Licensing</a> has the details.</p>
+      <p>Redis is a registered trademark of Redis Ltd. Any rights therein are reserved to Redis Ltd. This project is not affiliated with, endorsed by, or sponsored by Redis Ltd. Redis officially supports Linux; builds from this repository are community-maintained, so test them against your own workload before relying on them in production.</p>
+    </div>
+  </div>
+</footer>
+</body>
+</html>

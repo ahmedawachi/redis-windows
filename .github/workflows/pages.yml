@@ -1,0 +1,173 @@
+name: Pages
+
+# Publishes the project site to GitHub Pages. The benchmark page reads
+# data/bench.json: the datasets committed under site/data/datasets plus the
+# benchmark CSVs of the most recent successful "Verify" runs on main that still
+# have their bench-* artifacts. No runs, no artifacts, expired artifacts and
+# Pages not being enabled yet are all normal states and never fail this workflow.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'site/**'
+      - 'docs/**'
+      - 'patches/redis/README.md'
+      - '.github/assets/**'
+      - 'scripts/build-site.sh'
+      - 'ci/bench-to-json.py'
+      - 'ci/tests/**'
+      - '.github/workflows/pages.yml'
+  workflow_run:
+    workflows: ["Verify"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+# Each job gets only what it uses (below).
+permissions: {}
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    # A failed Verify run brings no new data, and a run started by a pull request
+    # (including one from a fork whose branch happens to be called main) is not a
+    # trusted source of benchmark numbers; skip rather than rebuild.
+    if: >-
+      github.event_name != 'workflow_run' || (
+        github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.event != 'pull_request' &&
+        github.event.workflow_run.event != 'pull_request_target' &&
+        github.event.workflow_run.head_repository.full_name == github.repository)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read   # checkout
+      actions: read    # list Verify runs, download their artifacts and job logs
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Unit tests (data pipeline)
+        run: python3 -m unittest discover -s ci/tests -v
+
+      - name: Collect benchmark results from recent Verify runs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          MAX_RUNS: "10"
+        run: |
+          # No "set -e": every lookup below may legitimately come back empty.
+          set -uo pipefail
+          mkdir -p bench-runs
+          if ! gh run list --repo "$REPO" --workflow verify.yml --branch main --status success \
+                 --limit 50 --json databaseId,headSha,createdAt,url,event >runs.json 2>gh-error.txt; then
+            echo "::notice::No Verify runs could be listed ($(head -c 200 gh-error.txt | tr '\n' ' ')). Publishing the committed datasets only."
+            echo '[]' >runs.json
+          fi
+          # --branch filters on the head branch only, which a fork's pull request can
+          # also call main. Only runs started from this repository itself are used.
+          jq '[.[] | select(.event == "workflow_dispatch" or .event == "push" or .event == "schedule")]' \
+            runs.json >runs-trusted.json 2>/dev/null || echo '[]' >runs-trusted.json
+          mv runs-trusted.json runs.json
+          kept=0
+          for id in $(jq -r '.[].databaseId' runs.json); do
+            [ "$kept" -lt "$MAX_RUNS" ] || break
+            names=$(gh api "repos/$REPO/actions/runs/$id/artifacts?per_page=100" \
+                      --jq '.artifacts[] | select(.expired | not) | select(.name | startswith("bench-")) | .name' \
+                      2>/dev/null || true)
+            if [ -z "$names" ]; then
+              echo "run $id: no unexpired bench-* artifacts"
+              continue
+            fi
+            dir="bench-runs/$id"
+            mkdir -p "$dir"
+            if ! gh run download "$id" --repo "$REPO" --pattern 'bench-*' --dir "$dir"; then
+              echo "::warning::Could not download the benchmark artifacts of run $id; skipped."
+              rm -rf "$dir"
+              continue
+            fi
+            # Toolchain = artifact name (bench-<toolchain>); gh puts each artifact in its own directory.
+            jq --argjson id "$id" --arg names "$(echo "$names" | tr '\n' ' ')" '
+              .[] | select(.databaseId == $id) | {
+                run_id: .databaseId, run_url: .url, head_sha: .headSha,
+                created_at: .createdAt, event: .event,
+                artifacts: ($names | split(" ") | map(select(length > 0))),
+                runner: "GitHub-hosted windows-latest"
+              }' runs.json >"$dir/meta.json"
+            # The prepare job's log records the Redis version and optimization level.
+            job=$(gh api "repos/$REPO/actions/runs/$id/jobs?per_page=100" \
+                    --jq '[.jobs[] | select(.name == "prepare") | .id][0] // empty' 2>/dev/null || true)
+            if [ -n "$job" ]; then
+              gh api "repos/$REPO/actions/jobs/$job/logs" >"$dir/prepare.log" 2>/dev/null || rm -f "$dir/prepare.log"
+            fi
+            echo "run $id: $(echo "$names" | tr '\n' ' ')"
+            kept=$((kept + 1))
+          done
+          echo "Collected benchmark results from $kept Verify run(s)."
+          exit 0
+
+      - name: Build the site
+        run: bash scripts/build-site.sh _site --bench-dir bench-runs
+
+      - name: Summary
+        run: |
+          set -euo pipefail
+          {
+            echo "### Site build"
+            echo
+            echo "Datasets in \`data/bench.json\`:"
+            echo
+            jq -r '.datasets[] | "- \(.date[0:10]) · \(.kind) · \(.title)"' _site/data/bench.json
+            if [ "$(jq '.datasets | length' _site/data/bench.json)" = 0 ]; then echo "- none yet"; fi
+          } >>"$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: _site
+          include-hidden-files: true
+
+  deploy:
+    needs: build
+    # Only the default branch may deploy to the github-pages environment.
+    if: github.ref_name == github.event.repository.default_branch
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      pages: write      # read the Pages configuration and deploy
+      id-token: write   # the deployment's OIDC token
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Check that Pages is enabled with GitHub Actions as its source
+        id: pages
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -uo pipefail
+          build_type=$(gh api "repos/$REPO/pages" --jq '.build_type // ""' 2>/dev/null || true)
+          if [ "$build_type" = workflow ]; then
+            echo "enabled=true" >>"$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "enabled=false" >>"$GITHUB_OUTPUT"
+          if [ -z "$build_type" ]; then state="GitHub Pages is not enabled for this repository"; else state="GitHub Pages builds from '$build_type', not from GitHub Actions"; fi
+          echo "::notice::$state; the site was built but not deployed."
+          {
+            echo "### Site built, not deployed"
+            echo
+            echo "$state, so the deploy step was skipped."
+            echo
+            echo "To publish: open the repository's **Settings → Pages**, and under **Build and deployment** set **Source: GitHub Actions**. Then re-run this workflow (Actions → Pages → Run workflow)."
+          } >>"$GITHUB_STEP_SUMMARY"
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        if: steps.pages.outputs.enabled == 'true'
+        uses: actions/deploy-pages@v5

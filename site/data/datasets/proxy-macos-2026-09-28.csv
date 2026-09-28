@@ -1,0 +1,715 @@
+label,rep,test,params,metric,value
+baseline,1,set,c=1 P=1 d=3,rps,15738.12
+baseline,1,set,c=1 P=1 d=3,avg_ms,0.054
+baseline,1,set,c=1 P=1 d=3,p50_ms,0.055
+baseline,1,set,c=1 P=1 d=3,p99_ms,0.143
+baseline,1,set,c=1 P=1 d=3,max_ms,8.439
+baseline,1,set,c=1 P=1 d=3,cpu_user_s,0.351900
+baseline,1,set,c=1 P=1 d=3,cpu_sys_s,1.840952
+baseline,1,set,c=1 P=1 d=3,cpu_total_s,2.192852
+baseline,1,set,c=1 P=1 d=3,cpu_us_per_op,21.929
+baseline,1,set,c=50 P=16 d=3,rps,398089.16
+baseline,1,set,c=50 P=16 d=3,avg_ms,1.829
+baseline,1,set,c=50 P=16 d=3,p50_ms,1.767
+baseline,1,set,c=50 P=16 d=3,p99_ms,3.119
+baseline,1,set,c=50 P=16 d=3,max_ms,7.247
+baseline,1,set,c=50 P=16 d=3,cpu_user_s,0.662552
+baseline,1,set,c=50 P=16 d=3,cpu_sys_s,0.563980
+baseline,1,set,c=50 P=16 d=3,cpu_total_s,1.226532
+baseline,1,set,c=50 P=16 d=3,cpu_us_per_op,2.453
+baseline,1,get,c=1 P=1 d=3,rps,14382.28
+baseline,1,get,c=1 P=1 d=3,avg_ms,0.059
+baseline,1,get,c=1 P=1 d=3,p50_ms,0.055
+baseline,1,get,c=1 P=1 d=3,p99_ms,0.151
+baseline,1,get,c=1 P=1 d=3,max_ms,17.119
+baseline,1,get,c=1 P=1 d=3,cpu_user_s,0.345780
+baseline,1,get,c=1 P=1 d=3,cpu_sys_s,2.006980
+baseline,1,get,c=1 P=1 d=3,cpu_total_s,2.352760
+baseline,1,get,c=1 P=1 d=3,cpu_us_per_op,23.528
+baseline,1,get,c=50 P=16 d=3,rps,314861.44
+baseline,1,get,c=50 P=16 d=3,avg_ms,2.213
+baseline,1,get,c=50 P=16 d=3,p50_ms,1.919
+baseline,1,get,c=50 P=16 d=3,p99_ms,5.831
+baseline,1,get,c=50 P=16 d=3,max_ms,32.895
+baseline,1,get,c=50 P=16 d=3,cpu_user_s,0.655260
+baseline,1,get,c=50 P=16 d=3,cpu_sys_s,0.720700
+baseline,1,get,c=50 P=16 d=3,cpu_total_s,1.375960
+baseline,1,get,c=50 P=16 d=3,cpu_us_per_op,2.752
+baseline,1,hset,c=1 P=1 d=3,rps,12813.94
+baseline,1,hset,c=1 P=1 d=3,avg_ms,0.066
+baseline,1,hset,c=1 P=1 d=3,p50_ms,0.055
+baseline,1,hset,c=1 P=1 d=3,p99_ms,0.199
+baseline,1,hset,c=1 P=1 d=3,max_ms,8.767
+baseline,1,hset,c=1 P=1 d=3,cpu_user_s,0.456180
+baseline,1,hset,c=1 P=1 d=3,cpu_sys_s,2.130800
+baseline,1,hset,c=1 P=1 d=3,cpu_total_s,2.586980
+baseline,1,hset,c=1 P=1 d=3,cpu_us_per_op,25.870
+baseline,1,hset,c=50 P=16 d=3,rps,417710.94
+baseline,1,hset,c=50 P=16 d=3,avg_ms,1.770
+baseline,1,hset,c=50 P=16 d=3,p50_ms,1.759
+baseline,1,hset,c=50 P=16 d=3,p99_ms,2.463
+baseline,1,hset,c=50 P=16 d=3,max_ms,4.319
+baseline,1,hset,c=50 P=16 d=3,cpu_user_s,0.670160
+baseline,1,hset,c=50 P=16 d=3,cpu_sys_s,0.520310
+baseline,1,hset,c=50 P=16 d=3,cpu_total_s,1.190470
+baseline,1,hset,c=50 P=16 d=3,cpu_us_per_op,2.381
+baseline,1,set,c=4 P=1 d=1900000,rps,1136.36
+baseline,1,set,c=4 P=1 d=1900000,avg_ms,3.289
+baseline,1,set,c=4 P=1 d=1900000,p50_ms,3.279
+baseline,1,set,c=4 P=1 d=1900000,p99_ms,5.087
+baseline,1,set,c=4 P=1 d=1900000,max_ms,7.031
+baseline,1,set,c=4 P=1 d=1900000,cpu_user_s,0.020030
+baseline,1,set,c=4 P=1 d=1900000,cpu_sys_s,0.261520
+baseline,1,set,c=4 P=1 d=1900000,cpu_total_s,0.281550
+baseline,1,set,c=4 P=1 d=1900000,cpu_us_per_op,703.875
+baseline,1,get,c=4 P=1 d=1900000,rps,1223.24
+baseline,1,get,c=4 P=1 d=1900000,avg_ms,1.019
+baseline,1,get,c=4 P=1 d=1900000,p50_ms,0.871
+baseline,1,get,c=4 P=1 d=1900000,p99_ms,2.767
+baseline,1,get,c=4 P=1 d=1900000,max_ms,3.487
+baseline,1,get,c=4 P=1 d=1900000,cpu_user_s,0.003700
+baseline,1,get,c=4 P=1 d=1900000,cpu_sys_s,0.254950
+baseline,1,get,c=4 P=1 d=1900000,cpu_total_s,0.258650
+baseline,1,get,c=4 P=1 d=1900000,cpu_us_per_op,646.625
+baseline,1,hmget,c=1 d=1900000,rps,1012.66
+baseline,1,hmget,c=1 d=1900000,avg_ms,0.126
+baseline,1,hmget,c=1 d=1900000,p50_ms,0.127
+baseline,1,hmget,c=1 d=1900000,p99_ms,0.175
+baseline,1,hmget,c=1 d=1900000,max_ms,0.207
+baseline,1,hmget,c=1 d=1900000,cpu_user_s,0.017740
+baseline,1,hmget,c=1 d=1900000,cpu_sys_s,0.238510
+baseline,1,hmget,c=1 d=1900000,cpu_total_s,0.256250
+baseline,1,hmget,c=1 d=1900000,cpu_us_per_op,640.625
+baseline,1,hmget,c=2 d=1900000,rps,1277.96
+baseline,1,hmget,c=2 d=1900000,avg_ms,0.369
+baseline,1,hmget,c=2 d=1900000,p50_ms,0.335
+baseline,1,hmget,c=2 d=1900000,p99_ms,0.831
+baseline,1,hmget,c=2 d=1900000,max_ms,1.103
+baseline,1,hmget,c=2 d=1900000,cpu_user_s,0.015770
+baseline,1,hmget,c=2 d=1900000,cpu_sys_s,0.219350
+baseline,1,hmget,c=2 d=1900000,cpu_total_s,0.235120
+baseline,1,hmget,c=2 d=1900000,cpu_us_per_op,587.800
+baseline,1,hset-large,c=1 d=1900000,rps,746.27
+baseline,1,hset-large,c=1 d=1900000,avg_ms,1.330
+baseline,1,hset-large,c=1 d=1900000,p50_ms,1.319
+baseline,1,hset-large,c=1 d=1900000,p99_ms,2.023
+baseline,1,hset-large,c=1 d=1900000,max_ms,6.559
+baseline,1,hset-large,c=1 d=1900000,cpu_user_s,0.026490
+baseline,1,hset-large,c=1 d=1900000,cpu_sys_s,0.229710
+baseline,1,hset-large,c=1 d=1900000,cpu_total_s,0.256200
+baseline,1,hset-large,c=1 d=1900000,cpu_us_per_op,640.500
+baseline,1,bgsave,populate=64MB,used_memory_mb,75.8
+baseline,1,bgsave,populate=64MB,fork_ms,4.267
+baseline,1,bgsave,populate=64MB,bgsave_wall_ms,314.0
+baseline,1,bgsave,populate=64MB,child_cpu_s,0.174
+baseline,1,bgsave,populate=64MB,fork_ms,2.981
+baseline,1,bgsave,populate=64MB,bgsave_wall_ms,292.6
+baseline,1,bgsave,populate=64MB,child_cpu_s,0.181
+baseline,1,bgsave,populate=64MB,fork_ms,2.615
+baseline,1,bgsave,populate=64MB,bgsave_wall_ms,356.6
+baseline,1,bgsave,populate=64MB,child_cpu_s,0.185
+baseline,1,bgsave,populate=256MB,used_memory_mb,300.0
+baseline,1,bgsave,populate=256MB,fork_ms,14.651
+baseline,1,bgsave,populate=256MB,bgsave_wall_ms,893.9
+baseline,1,bgsave,populate=256MB,child_cpu_s,0.680
+baseline,1,bgsave,populate=256MB,fork_ms,8.093
+baseline,1,bgsave,populate=256MB,bgsave_wall_ms,948.0
+baseline,1,bgsave,populate=256MB,child_cpu_s,0.776
+baseline,1,bgsave,populate=256MB,fork_ms,9.237
+baseline,1,bgsave,populate=256MB,bgsave_wall_ms,1105.4
+baseline,1,bgsave,populate=256MB,child_cpu_s,0.849
+fork,1,set,c=1 P=1 d=3,rps,13777.90
+fork,1,set,c=1 P=1 d=3,avg_ms,0.061
+fork,1,set,c=1 P=1 d=3,p50_ms,0.055
+fork,1,set,c=1 P=1 d=3,p99_ms,0.167
+fork,1,set,c=1 P=1 d=3,max_ms,11.047
+fork,1,set,c=1 P=1 d=3,cpu_user_s,0.312126
+fork,1,set,c=1 P=1 d=3,cpu_sys_s,2.038665
+fork,1,set,c=1 P=1 d=3,cpu_total_s,2.350791
+fork,1,set,c=1 P=1 d=3,cpu_us_per_op,23.508
+fork,1,set,c=50 P=16 d=3,rps,536480.69
+fork,1,set,c=50 P=16 d=3,avg_ms,1.270
+fork,1,set,c=50 P=16 d=3,p50_ms,1.223
+fork,1,set,c=50 P=16 d=3,p99_ms,2.383
+fork,1,set,c=50 P=16 d=3,max_ms,4.127
+fork,1,set,c=50 P=16 d=3,cpu_user_s,0.270846
+fork,1,set,c=50 P=16 d=3,cpu_sys_s,0.630410
+fork,1,set,c=50 P=16 d=3,cpu_total_s,0.901256
+fork,1,set,c=50 P=16 d=3,cpu_us_per_op,1.803
+fork,1,get,c=1 P=1 d=3,rps,18406.04
+fork,1,get,c=1 P=1 d=3,avg_ms,0.046
+fork,1,get,c=1 P=1 d=3,p50_ms,0.047
+fork,1,get,c=1 P=1 d=3,p99_ms,0.087
+fork,1,get,c=1 P=1 d=3,max_ms,5.823
+fork,1,get,c=1 P=1 d=3,cpu_user_s,0.206157
+fork,1,get,c=1 P=1 d=3,cpu_sys_s,1.584440
+fork,1,get,c=1 P=1 d=3,cpu_total_s,1.790597
+fork,1,get,c=1 P=1 d=3,cpu_us_per_op,17.906
+fork,1,get,c=50 P=16 d=3,rps,744047.62
+fork,1,get,c=50 P=16 d=3,avg_ms,0.761
+fork,1,get,c=50 P=16 d=3,p50_ms,0.687
+fork,1,get,c=50 P=16 d=3,p99_ms,1.415
+fork,1,get,c=50 P=16 d=3,max_ms,8.591
+fork,1,get,c=50 P=16 d=3,cpu_user_s,0.149478
+fork,1,get,c=50 P=16 d=3,cpu_sys_s,0.473160
+fork,1,get,c=50 P=16 d=3,cpu_total_s,0.622638
+fork,1,get,c=50 P=16 d=3,cpu_us_per_op,1.245
+fork,1,hset,c=1 P=1 d=3,rps,18594.27
+fork,1,hset,c=1 P=1 d=3,avg_ms,0.046
+fork,1,hset,c=1 P=1 d=3,p50_ms,0.047
+fork,1,hset,c=1 P=1 d=3,p99_ms,0.087
+fork,1,hset,c=1 P=1 d=3,max_ms,3.607
+fork,1,hset,c=1 P=1 d=3,cpu_user_s,0.233448
+fork,1,hset,c=1 P=1 d=3,cpu_sys_s,1.588800
+fork,1,hset,c=1 P=1 d=3,cpu_total_s,1.822248
+fork,1,hset,c=1 P=1 d=3,cpu_us_per_op,18.222
+fork,1,hset,c=50 P=16 d=3,rps,652741.56
+fork,1,hset,c=50 P=16 d=3,avg_ms,1.090
+fork,1,hset,c=50 P=16 d=3,p50_ms,1.055
+fork,1,hset,c=50 P=16 d=3,p99_ms,1.639
+fork,1,hset,c=50 P=16 d=3,max_ms,2.367
+fork,1,hset,c=50 P=16 d=3,cpu_user_s,0.230270
+fork,1,hset,c=50 P=16 d=3,cpu_sys_s,0.521790
+fork,1,hset,c=50 P=16 d=3,cpu_total_s,0.752060
+fork,1,hset,c=50 P=16 d=3,cpu_us_per_op,1.504
+fork,1,set,c=4 P=1 d=1900000,rps,1176.47
+fork,1,set,c=4 P=1 d=1900000,avg_ms,3.355
+fork,1,set,c=4 P=1 d=1900000,p50_ms,3.319
+fork,1,set,c=4 P=1 d=1900000,p99_ms,4.735
+fork,1,set,c=4 P=1 d=1900000,max_ms,6.583
+fork,1,set,c=4 P=1 d=1900000,cpu_user_s,0.015610
+fork,1,set,c=4 P=1 d=1900000,cpu_sys_s,0.260910
+fork,1,set,c=4 P=1 d=1900000,cpu_total_s,0.276520
+fork,1,set,c=4 P=1 d=1900000,cpu_us_per_op,691.300
+fork,1,get,c=4 P=1 d=1900000,rps,1324.50
+fork,1,get,c=4 P=1 d=1900000,avg_ms,0.839
+fork,1,get,c=4 P=1 d=1900000,p50_ms,0.767
+fork,1,get,c=4 P=1 d=1900000,p99_ms,1.935
+fork,1,get,c=4 P=1 d=1900000,max_ms,2.815
+fork,1,get,c=4 P=1 d=1900000,cpu_user_s,0.002830
+fork,1,get,c=4 P=1 d=1900000,cpu_sys_s,0.240600
+fork,1,get,c=4 P=1 d=1900000,cpu_total_s,0.243430
+fork,1,get,c=4 P=1 d=1900000,cpu_us_per_op,608.575
+fork,1,hmget,c=1 d=1900000,rps,963.86
+fork,1,hmget,c=1 d=1900000,avg_ms,0.132
+fork,1,hmget,c=1 d=1900000,p50_ms,0.127
+fork,1,hmget,c=1 d=1900000,p99_ms,0.215
+fork,1,hmget,c=1 d=1900000,max_ms,1.359
+fork,1,hmget,c=1 d=1900000,cpu_user_s,0.016800
+fork,1,hmget,c=1 d=1900000,cpu_sys_s,0.252020
+fork,1,hmget,c=1 d=1900000,cpu_total_s,0.268820
+fork,1,hmget,c=1 d=1900000,cpu_us_per_op,672.050
+fork,1,hmget,c=2 d=1900000,rps,1186.94
+fork,1,hmget,c=2 d=1900000,avg_ms,0.420
+fork,1,hmget,c=2 d=1900000,p50_ms,0.375
+fork,1,hmget,c=2 d=1900000,p99_ms,0.975
+fork,1,hmget,c=2 d=1900000,max_ms,1.255
+fork,1,hmget,c=2 d=1900000,cpu_user_s,0.016270
+fork,1,hmget,c=2 d=1900000,cpu_sys_s,0.237000
+fork,1,hmget,c=2 d=1900000,cpu_total_s,0.253270
+fork,1,hmget,c=2 d=1900000,cpu_us_per_op,633.175
+fork,1,hset-large,c=1 d=1900000,rps,720.72
+fork,1,hset-large,c=1 d=1900000,avg_ms,1.377
+fork,1,hset-large,c=1 d=1900000,p50_ms,1.359
+fork,1,hset-large,c=1 d=1900000,p99_ms,1.751
+fork,1,hset-large,c=1 d=1900000,max_ms,1.855
+fork,1,hset-large,c=1 d=1900000,cpu_user_s,0.026490
+fork,1,hset-large,c=1 d=1900000,cpu_sys_s,0.257140
+fork,1,hset-large,c=1 d=1900000,cpu_total_s,0.283630
+fork,1,hset-large,c=1 d=1900000,cpu_us_per_op,709.075
+fork,1,bgsave,populate=64MB,used_memory_mb,75.8
+fork,1,bgsave,populate=64MB,fork_ms,5.519
+fork,1,bgsave,populate=64MB,bgsave_wall_ms,196.5
+fork,1,bgsave,populate=64MB,child_cpu_s,0.054
+fork,1,bgsave,populate=64MB,fork_ms,3.473
+fork,1,bgsave,populate=64MB,bgsave_wall_ms,119.9
+fork,1,bgsave,populate=64MB,child_cpu_s,0.056
+fork,1,bgsave,populate=64MB,fork_ms,2.731
+fork,1,bgsave,populate=64MB,bgsave_wall_ms,223.2
+fork,1,bgsave,populate=64MB,child_cpu_s,0.057
+fork,1,bgsave,populate=256MB,used_memory_mb,300.0
+fork,1,bgsave,populate=256MB,fork_ms,15.611
+fork,1,bgsave,populate=256MB,bgsave_wall_ms,427.6
+fork,1,bgsave,populate=256MB,child_cpu_s,0.245
+fork,1,bgsave,populate=256MB,fork_ms,8.519
+fork,1,bgsave,populate=256MB,bgsave_wall_ms,453.3
+fork,1,bgsave,populate=256MB,child_cpu_s,0.240
+fork,1,bgsave,populate=256MB,fork_ms,7.904
+fork,1,bgsave,populate=256MB,bgsave_wall_ms,421.5
+fork,1,bgsave,populate=256MB,child_cpu_s,0.232
+baseline,2,set,c=1 P=1 d=3,rps,18228.22
+baseline,2,set,c=1 P=1 d=3,avg_ms,0.046
+baseline,2,set,c=1 P=1 d=3,p50_ms,0.047
+baseline,2,set,c=1 P=1 d=3,p99_ms,0.103
+baseline,2,set,c=1 P=1 d=3,max_ms,1.703
+baseline,2,set,c=1 P=1 d=3,cpu_user_s,0.317728
+baseline,2,set,c=1 P=1 d=3,cpu_sys_s,1.593102
+baseline,2,set,c=1 P=1 d=3,cpu_total_s,1.910830
+baseline,2,set,c=1 P=1 d=3,cpu_us_per_op,19.108
+baseline,2,set,c=50 P=16 d=3,rps,411861.62
+baseline,2,set,c=50 P=16 d=3,avg_ms,1.754
+baseline,2,set,c=50 P=16 d=3,p50_ms,1.647
+baseline,2,set,c=50 P=16 d=3,p99_ms,4.055
+baseline,2,set,c=50 P=16 d=3,max_ms,11.287
+baseline,2,set,c=50 P=16 d=3,cpu_user_s,0.629154
+baseline,2,set,c=50 P=16 d=3,cpu_sys_s,0.537000
+baseline,2,set,c=50 P=16 d=3,cpu_total_s,1.166154
+baseline,2,set,c=50 P=16 d=3,cpu_us_per_op,2.332
+baseline,2,get,c=1 P=1 d=3,rps,14070.63
+baseline,2,get,c=1 P=1 d=3,avg_ms,0.060
+baseline,2,get,c=1 P=1 d=3,p50_ms,0.055
+baseline,2,get,c=1 P=1 d=3,p99_ms,0.199
+baseline,2,get,c=1 P=1 d=3,max_ms,7.111
+baseline,2,get,c=1 P=1 d=3,cpu_user_s,0.366248
+baseline,2,get,c=1 P=1 d=3,cpu_sys_s,1.973770
+baseline,2,get,c=1 P=1 d=3,cpu_total_s,2.340018
+baseline,2,get,c=1 P=1 d=3,cpu_us_per_op,23.400
+baseline,2,get,c=50 P=16 d=3,rps,422297.28
+baseline,2,get,c=50 P=16 d=3,avg_ms,1.689
+baseline,2,get,c=50 P=16 d=3,p50_ms,1.591
+baseline,2,get,c=50 P=16 d=3,p99_ms,3.623
+baseline,2,get,c=50 P=16 d=3,max_ms,6.287
+baseline,2,get,c=50 P=16 d=3,cpu_user_s,0.537340
+baseline,2,get,c=50 P=16 d=3,cpu_sys_s,0.592000
+baseline,2,get,c=50 P=16 d=3,cpu_total_s,1.129340
+baseline,2,get,c=50 P=16 d=3,cpu_us_per_op,2.259
+baseline,2,hset,c=1 P=1 d=3,rps,13231.01
+baseline,2,hset,c=1 P=1 d=3,avg_ms,0.064
+baseline,2,hset,c=1 P=1 d=3,p50_ms,0.055
+baseline,2,hset,c=1 P=1 d=3,p99_ms,0.183
+baseline,2,hset,c=1 P=1 d=3,max_ms,7.983
+baseline,2,hset,c=1 P=1 d=3,cpu_user_s,0.450820
+baseline,2,hset,c=1 P=1 d=3,cpu_sys_s,2.076610
+baseline,2,hset,c=1 P=1 d=3,cpu_total_s,2.527430
+baseline,2,hset,c=1 P=1 d=3,cpu_us_per_op,25.274
+baseline,2,hset,c=50 P=16 d=3,rps,323834.19
+baseline,2,hset,c=50 P=16 d=3,avg_ms,2.243
+baseline,2,hset,c=50 P=16 d=3,p50_ms,1.935
+baseline,2,hset,c=50 P=16 d=3,p99_ms,7.119
+baseline,2,hset,c=50 P=16 d=3,max_ms,60.703
+baseline,2,hset,c=50 P=16 d=3,cpu_user_s,0.747420
+baseline,2,hset,c=50 P=16 d=3,cpu_sys_s,0.595710
+baseline,2,hset,c=50 P=16 d=3,cpu_total_s,1.343130
+baseline,2,hset,c=50 P=16 d=3,cpu_us_per_op,2.686
+baseline,2,set,c=4 P=1 d=1900000,rps,1089.92
+baseline,2,set,c=4 P=1 d=1900000,avg_ms,3.497
+baseline,2,set,c=4 P=1 d=1900000,p50_ms,3.439
+baseline,2,set,c=4 P=1 d=1900000,p99_ms,6.103
+baseline,2,set,c=4 P=1 d=1900000,max_ms,7.823
+baseline,2,set,c=4 P=1 d=1900000,cpu_user_s,0.021460
+baseline,2,set,c=4 P=1 d=1900000,cpu_sys_s,0.267330
+baseline,2,set,c=4 P=1 d=1900000,cpu_total_s,0.288790
+baseline,2,set,c=4 P=1 d=1900000,cpu_us_per_op,721.975
+baseline,2,get,c=4 P=1 d=1900000,rps,1379.31
+baseline,2,get,c=4 P=1 d=1900000,avg_ms,0.881
+baseline,2,get,c=4 P=1 d=1900000,p50_ms,0.831
+baseline,2,get,c=4 P=1 d=1900000,p99_ms,1.671
+baseline,2,get,c=4 P=1 d=1900000,max_ms,2.239
+baseline,2,get,c=4 P=1 d=1900000,cpu_user_s,0.003180
+baseline,2,get,c=4 P=1 d=1900000,cpu_sys_s,0.228690
+baseline,2,get,c=4 P=1 d=1900000,cpu_total_s,0.231870
+baseline,2,get,c=4 P=1 d=1900000,cpu_us_per_op,579.675
+baseline,2,hmget,c=1 d=1900000,rps,1036.27
+baseline,2,hmget,c=1 d=1900000,avg_ms,0.134
+baseline,2,hmget,c=1 d=1900000,p50_ms,0.127
+baseline,2,hmget,c=1 d=1900000,p99_ms,0.327
+baseline,2,hmget,c=1 d=1900000,max_ms,0.679
+baseline,2,hmget,c=1 d=1900000,cpu_user_s,0.017860
+baseline,2,hmget,c=1 d=1900000,cpu_sys_s,0.232160
+baseline,2,hmget,c=1 d=1900000,cpu_total_s,0.250020
+baseline,2,hmget,c=1 d=1900000,cpu_us_per_op,625.050
+baseline,2,hmget,c=2 d=1900000,rps,1337.79
+baseline,2,hmget,c=2 d=1900000,avg_ms,0.349
+baseline,2,hmget,c=2 d=1900000,p50_ms,0.295
+baseline,2,hmget,c=2 d=1900000,p99_ms,0.783
+baseline,2,hmget,c=2 d=1900000,max_ms,0.863
+baseline,2,hmget,c=2 d=1900000,cpu_user_s,0.014570
+baseline,2,hmget,c=2 d=1900000,cpu_sys_s,0.210430
+baseline,2,hmget,c=2 d=1900000,cpu_total_s,0.225000
+baseline,2,hmget,c=2 d=1900000,cpu_us_per_op,562.500
+baseline,2,hset-large,c=1 d=1900000,rps,673.40
+baseline,2,hset-large,c=1 d=1900000,avg_ms,1.464
+baseline,2,hset-large,c=1 d=1900000,p50_ms,1.359
+baseline,2,hset-large,c=1 d=1900000,p99_ms,2.791
+baseline,2,hset-large,c=1 d=1900000,max_ms,10.943
+baseline,2,hset-large,c=1 d=1900000,cpu_user_s,0.032910
+baseline,2,hset-large,c=1 d=1900000,cpu_sys_s,0.233920
+baseline,2,hset-large,c=1 d=1900000,cpu_total_s,0.266830
+baseline,2,hset-large,c=1 d=1900000,cpu_us_per_op,667.075
+baseline,2,bgsave,populate=64MB,used_memory_mb,75.8
+baseline,2,bgsave,populate=64MB,fork_ms,5.414
+baseline,2,bgsave,populate=64MB,bgsave_wall_ms,341.0
+baseline,2,bgsave,populate=64MB,child_cpu_s,0.186
+baseline,2,bgsave,populate=64MB,fork_ms,2.975
+baseline,2,bgsave,populate=64MB,bgsave_wall_ms,369.5
+baseline,2,bgsave,populate=64MB,child_cpu_s,0.179
+baseline,2,bgsave,populate=64MB,fork_ms,2.779
+baseline,2,bgsave,populate=64MB,bgsave_wall_ms,299.7
+baseline,2,bgsave,populate=64MB,child_cpu_s,0.161
+baseline,2,bgsave,populate=256MB,used_memory_mb,300.0
+baseline,2,bgsave,populate=256MB,fork_ms,15.154
+baseline,2,bgsave,populate=256MB,bgsave_wall_ms,782.9
+baseline,2,bgsave,populate=256MB,child_cpu_s,0.661
+baseline,2,bgsave,populate=256MB,fork_ms,8.110
+baseline,2,bgsave,populate=256MB,bgsave_wall_ms,796.9
+baseline,2,bgsave,populate=256MB,child_cpu_s,0.660
+baseline,2,bgsave,populate=256MB,fork_ms,7.991
+baseline,2,bgsave,populate=256MB,bgsave_wall_ms,807.4
+baseline,2,bgsave,populate=256MB,child_cpu_s,0.655
+fork,2,set,c=1 P=1 d=3,rps,17664.72
+fork,2,set,c=1 P=1 d=3,avg_ms,0.048
+fork,2,set,c=1 P=1 d=3,p50_ms,0.047
+fork,2,set,c=1 P=1 d=3,p99_ms,0.135
+fork,2,set,c=1 P=1 d=3,max_ms,6.215
+fork,2,set,c=1 P=1 d=3,cpu_user_s,0.241852
+fork,2,set,c=1 P=1 d=3,cpu_sys_s,1.641996
+fork,2,set,c=1 P=1 d=3,cpu_total_s,1.883848
+fork,2,set,c=1 P=1 d=3,cpu_us_per_op,18.838
+fork,2,set,c=50 P=16 d=3,rps,801282.06
+fork,2,set,c=50 P=16 d=3,avg_ms,0.866
+fork,2,set,c=50 P=16 d=3,p50_ms,0.839
+fork,2,set,c=50 P=16 d=3,p99_ms,1.519
+fork,2,set,c=50 P=16 d=3,max_ms,2.991
+fork,2,set,c=50 P=16 d=3,cpu_user_s,0.181983
+fork,2,set,c=50 P=16 d=3,cpu_sys_s,0.425720
+fork,2,set,c=50 P=16 d=3,cpu_total_s,0.607703
+fork,2,set,c=50 P=16 d=3,cpu_us_per_op,1.215
+fork,2,get,c=1 P=1 d=3,rps,17073.59
+fork,2,get,c=1 P=1 d=3,avg_ms,0.050
+fork,2,get,c=1 P=1 d=3,p50_ms,0.047
+fork,2,get,c=1 P=1 d=3,p99_ms,0.127
+fork,2,get,c=1 P=1 d=3,max_ms,8.807
+fork,2,get,c=1 P=1 d=3,cpu_user_s,0.222563
+fork,2,get,c=1 P=1 d=3,cpu_sys_s,1.676680
+fork,2,get,c=1 P=1 d=3,cpu_total_s,1.899243
+fork,2,get,c=1 P=1 d=3,cpu_us_per_op,18.992
+fork,2,get,c=50 P=16 d=3,rps,749625.19
+fork,2,get,c=50 P=16 d=3,avg_ms,0.760
+fork,2,get,c=50 P=16 d=3,p50_ms,0.687
+fork,2,get,c=50 P=16 d=3,p99_ms,1.879
+fork,2,get,c=50 P=16 d=3,max_ms,5.495
+fork,2,get,c=50 P=16 d=3,cpu_user_s,0.147104
+fork,2,get,c=50 P=16 d=3,cpu_sys_s,0.453760
+fork,2,get,c=50 P=16 d=3,cpu_total_s,0.600864
+fork,2,get,c=50 P=16 d=3,cpu_us_per_op,1.202
+fork,2,hset,c=1 P=1 d=3,rps,16482.61
+fork,2,hset,c=1 P=1 d=3,avg_ms,0.051
+fork,2,hset,c=1 P=1 d=3,p50_ms,0.047
+fork,2,hset,c=1 P=1 d=3,p99_ms,0.135
+fork,2,hset,c=1 P=1 d=3,max_ms,6.215
+fork,2,hset,c=1 P=1 d=3,cpu_user_s,0.263909
+fork,2,hset,c=1 P=1 d=3,cpu_sys_s,1.770730
+fork,2,hset,c=1 P=1 d=3,cpu_total_s,2.034639
+fork,2,hset,c=1 P=1 d=3,cpu_us_per_op,20.346
+fork,2,hset,c=50 P=16 d=3,rps,679347.81
+fork,2,hset,c=50 P=16 d=3,avg_ms,1.048
+fork,2,hset,c=50 P=16 d=3,p50_ms,1.015
+fork,2,hset,c=50 P=16 d=3,p99_ms,1.591
+fork,2,hset,c=50 P=16 d=3,max_ms,2.399
+fork,2,hset,c=50 P=16 d=3,cpu_user_s,0.221210
+fork,2,hset,c=50 P=16 d=3,cpu_sys_s,0.504910
+fork,2,hset,c=50 P=16 d=3,cpu_total_s,0.726120
+fork,2,hset,c=50 P=16 d=3,cpu_us_per_op,1.452
+fork,2,set,c=4 P=1 d=1900000,rps,1173.02
+fork,2,set,c=4 P=1 d=1900000,avg_ms,3.364
+fork,2,set,c=4 P=1 d=1900000,p50_ms,3.279
+fork,2,set,c=4 P=1 d=1900000,p99_ms,5.791
+fork,2,set,c=4 P=1 d=1900000,max_ms,9.015
+fork,2,set,c=4 P=1 d=1900000,cpu_user_s,0.016050
+fork,2,set,c=4 P=1 d=1900000,cpu_sys_s,0.260290
+fork,2,set,c=4 P=1 d=1900000,cpu_total_s,0.276340
+fork,2,set,c=4 P=1 d=1900000,cpu_us_per_op,690.850
+fork,2,get,c=4 P=1 d=1900000,rps,1351.35
+fork,2,get,c=4 P=1 d=1900000,avg_ms,0.890
+fork,2,get,c=4 P=1 d=1900000,p50_ms,0.815
+fork,2,get,c=4 P=1 d=1900000,p99_ms,1.807
+fork,2,get,c=4 P=1 d=1900000,max_ms,2.935
+fork,2,get,c=4 P=1 d=1900000,cpu_user_s,0.002500
+fork,2,get,c=4 P=1 d=1900000,cpu_sys_s,0.226240
+fork,2,get,c=4 P=1 d=1900000,cpu_total_s,0.228740
+fork,2,get,c=4 P=1 d=1900000,cpu_us_per_op,571.850
+fork,2,hmget,c=1 d=1900000,rps,1092.90
+fork,2,hmget,c=1 d=1900000,avg_ms,0.109
+fork,2,hmget,c=1 d=1900000,p50_ms,0.103
+fork,2,hmget,c=1 d=1900000,p99_ms,0.183
+fork,2,hmget,c=1 d=1900000,max_ms,0.391
+fork,2,hmget,c=1 d=1900000,cpu_user_s,0.014230
+fork,2,hmget,c=1 d=1900000,cpu_sys_s,0.222760
+fork,2,hmget,c=1 d=1900000,cpu_total_s,0.236990
+fork,2,hmget,c=1 d=1900000,cpu_us_per_op,592.475
+fork,2,hmget,c=2 d=1900000,rps,1183.43
+fork,2,hmget,c=2 d=1900000,avg_ms,0.470
+fork,2,hmget,c=2 d=1900000,p50_ms,0.391
+fork,2,hmget,c=2 d=1900000,p99_ms,1.623
+fork,2,hmget,c=2 d=1900000,max_ms,2.943
+fork,2,hmget,c=2 d=1900000,cpu_user_s,0.016620
+fork,2,hmget,c=2 d=1900000,cpu_sys_s,0.237390
+fork,2,hmget,c=2 d=1900000,cpu_total_s,0.254010
+fork,2,hmget,c=2 d=1900000,cpu_us_per_op,635.025
+fork,2,hset-large,c=1 d=1900000,rps,816.33
+fork,2,hset-large,c=1 d=1900000,avg_ms,1.213
+fork,2,hset-large,c=1 d=1900000,p50_ms,1.215
+fork,2,hset-large,c=1 d=1900000,p99_ms,1.447
+fork,2,hset-large,c=1 d=1900000,max_ms,1.671
+fork,2,hset-large,c=1 d=1900000,cpu_user_s,0.025070
+fork,2,hset-large,c=1 d=1900000,cpu_sys_s,0.243980
+fork,2,hset-large,c=1 d=1900000,cpu_total_s,0.269050
+fork,2,hset-large,c=1 d=1900000,cpu_us_per_op,672.625
+fork,2,bgsave,populate=64MB,used_memory_mb,75.8
+fork,2,bgsave,populate=64MB,fork_ms,4.903
+fork,2,bgsave,populate=64MB,bgsave_wall_ms,183.9
+fork,2,bgsave,populate=64MB,child_cpu_s,0.052
+fork,2,bgsave,populate=64MB,fork_ms,2.690
+fork,2,bgsave,populate=64MB,bgsave_wall_ms,144.9
+fork,2,bgsave,populate=64MB,child_cpu_s,0.052
+fork,2,bgsave,populate=64MB,fork_ms,2.873
+fork,2,bgsave,populate=64MB,bgsave_wall_ms,180.2
+fork,2,bgsave,populate=64MB,child_cpu_s,0.050
+fork,2,bgsave,populate=256MB,used_memory_mb,300.0
+fork,2,bgsave,populate=256MB,fork_ms,15.583
+fork,2,bgsave,populate=256MB,bgsave_wall_ms,411.7
+fork,2,bgsave,populate=256MB,child_cpu_s,0.214
+fork,2,bgsave,populate=256MB,fork_ms,7.473
+fork,2,bgsave,populate=256MB,bgsave_wall_ms,328.7
+fork,2,bgsave,populate=256MB,child_cpu_s,0.210
+fork,2,bgsave,populate=256MB,fork_ms,7.825
+fork,2,bgsave,populate=256MB,bgsave_wall_ms,335.7
+fork,2,bgsave,populate=256MB,child_cpu_s,0.202
+baseline,3,set,c=1 P=1 d=3,rps,18508.24
+baseline,3,set,c=1 P=1 d=3,avg_ms,0.046
+baseline,3,set,c=1 P=1 d=3,p50_ms,0.047
+baseline,3,set,c=1 P=1 d=3,p99_ms,0.087
+baseline,3,set,c=1 P=1 d=3,max_ms,3.959
+baseline,3,set,c=1 P=1 d=3,cpu_user_s,0.296345
+baseline,3,set,c=1 P=1 d=3,cpu_sys_s,1.613881
+baseline,3,set,c=1 P=1 d=3,cpu_total_s,1.910226
+baseline,3,set,c=1 P=1 d=3,cpu_us_per_op,19.102
+baseline,3,set,c=50 P=16 d=3,rps,414250.19
+baseline,3,set,c=50 P=16 d=3,avg_ms,1.757
+baseline,3,set,c=50 P=16 d=3,p50_ms,1.695
+baseline,3,set,c=50 P=16 d=3,p99_ms,2.991
+baseline,3,set,c=50 P=16 d=3,max_ms,9.239
+baseline,3,set,c=50 P=16 d=3,cpu_user_s,0.637766
+baseline,3,set,c=50 P=16 d=3,cpu_sys_s,0.542280
+baseline,3,set,c=50 P=16 d=3,cpu_total_s,1.180046
+baseline,3,set,c=50 P=16 d=3,cpu_us_per_op,2.360
+baseline,3,get,c=1 P=1 d=3,rps,19588.64
+baseline,3,get,c=1 P=1 d=3,avg_ms,0.043
+baseline,3,get,c=1 P=1 d=3,p50_ms,0.047
+baseline,3,get,c=1 P=1 d=3,p99_ms,0.079
+baseline,3,get,c=1 P=1 d=3,max_ms,2.823
+baseline,3,get,c=1 P=1 d=3,cpu_user_s,0.242495
+baseline,3,get,c=1 P=1 d=3,cpu_sys_s,1.535280
+baseline,3,get,c=1 P=1 d=3,cpu_total_s,1.777775
+baseline,3,get,c=1 P=1 d=3,cpu_us_per_op,17.778
+baseline,3,get,c=50 P=16 d=3,rps,563063.06
+baseline,3,get,c=50 P=16 d=3,avg_ms,1.279
+baseline,3,get,c=50 P=16 d=3,p50_ms,1.231
+baseline,3,get,c=50 P=16 d=3,p99_ms,2.039
+baseline,3,get,c=50 P=16 d=3,max_ms,4.055
+baseline,3,get,c=50 P=16 d=3,cpu_user_s,0.414520
+baseline,3,get,c=50 P=16 d=3,cpu_sys_s,0.461460
+baseline,3,get,c=50 P=16 d=3,cpu_total_s,0.875980
+baseline,3,get,c=50 P=16 d=3,cpu_us_per_op,1.752
+baseline,3,hset,c=1 P=1 d=3,rps,19105.85
+baseline,3,hset,c=1 P=1 d=3,avg_ms,0.045
+baseline,3,hset,c=1 P=1 d=3,p50_ms,0.047
+baseline,3,hset,c=1 P=1 d=3,p99_ms,0.079
+baseline,3,hset,c=1 P=1 d=3,max_ms,0.455
+baseline,3,hset,c=1 P=1 d=3,cpu_user_s,0.306870
+baseline,3,hset,c=1 P=1 d=3,cpu_sys_s,1.551550
+baseline,3,hset,c=1 P=1 d=3,cpu_total_s,1.858420
+baseline,3,hset,c=1 P=1 d=3,cpu_us_per_op,18.584
+baseline,3,hset,c=50 P=16 d=3,rps,486854.94
+baseline,3,hset,c=50 P=16 d=3,avg_ms,1.515
+baseline,3,hset,c=50 P=16 d=3,p50_ms,1.503
+baseline,3,hset,c=50 P=16 d=3,p99_ms,2.103
+baseline,3,hset,c=50 P=16 d=3,max_ms,5.943
+baseline,3,hset,c=50 P=16 d=3,cpu_user_s,0.593710
+baseline,3,hset,c=50 P=16 d=3,cpu_sys_s,0.425540
+baseline,3,hset,c=50 P=16 d=3,cpu_total_s,1.019250
+baseline,3,hset,c=50 P=16 d=3,cpu_us_per_op,2.038
+baseline,3,set,c=4 P=1 d=1900000,rps,1476.01
+baseline,3,set,c=4 P=1 d=1900000,avg_ms,2.677
+baseline,3,set,c=4 P=1 d=1900000,p50_ms,2.647
+baseline,3,set,c=4 P=1 d=1900000,p99_ms,3.607
+baseline,3,set,c=4 P=1 d=1900000,max_ms,5.183
+baseline,3,set,c=4 P=1 d=1900000,cpu_user_s,0.014580
+baseline,3,set,c=4 P=1 d=1900000,cpu_sys_s,0.209070
+baseline,3,set,c=4 P=1 d=1900000,cpu_total_s,0.223650
+baseline,3,set,c=4 P=1 d=1900000,cpu_us_per_op,559.125
+baseline,3,get,c=4 P=1 d=1900000,rps,1680.67
+baseline,3,get,c=4 P=1 d=1900000,avg_ms,0.597
+baseline,3,get,c=4 P=1 d=1900000,p50_ms,0.551
+baseline,3,get,c=4 P=1 d=1900000,p99_ms,1.119
+baseline,3,get,c=4 P=1 d=1900000,max_ms,1.399
+baseline,3,get,c=4 P=1 d=1900000,cpu_user_s,0.002290
+baseline,3,get,c=4 P=1 d=1900000,cpu_sys_s,0.193210
+baseline,3,get,c=4 P=1 d=1900000,cpu_total_s,0.195500
+baseline,3,get,c=4 P=1 d=1900000,cpu_us_per_op,488.750
+baseline,3,hmget,c=1 d=1900000,rps,1302.93
+baseline,3,hmget,c=1 d=1900000,avg_ms,0.105
+baseline,3,hmget,c=1 d=1900000,p50_ms,0.103
+baseline,3,hmget,c=1 d=1900000,p99_ms,0.135
+baseline,3,hmget,c=1 d=1900000,max_ms,0.183
+baseline,3,hmget,c=1 d=1900000,cpu_user_s,0.014700
+baseline,3,hmget,c=1 d=1900000,cpu_sys_s,0.190640
+baseline,3,hmget,c=1 d=1900000,cpu_total_s,0.205340
+baseline,3,hmget,c=1 d=1900000,cpu_us_per_op,513.350
+baseline,3,hmget,c=2 d=1900000,rps,1538.46
+baseline,3,hmget,c=2 d=1900000,avg_ms,0.301
+baseline,3,hmget,c=2 d=1900000,p50_ms,0.263
+baseline,3,hmget,c=2 d=1900000,p99_ms,0.695
+baseline,3,hmget,c=2 d=1900000,max_ms,0.735
+baseline,3,hmget,c=2 d=1900000,cpu_user_s,0.013300
+baseline,3,hmget,c=2 d=1900000,cpu_sys_s,0.186080
+baseline,3,hmget,c=2 d=1900000,cpu_total_s,0.199380
+baseline,3,hmget,c=2 d=1900000,cpu_us_per_op,498.450
+baseline,3,hset-large,c=1 d=1900000,rps,938.97
+baseline,3,hset-large,c=1 d=1900000,avg_ms,1.056
+baseline,3,hset-large,c=1 d=1900000,p50_ms,1.039
+baseline,3,hset-large,c=1 d=1900000,p99_ms,1.383
+baseline,3,hset-large,c=1 d=1900000,max_ms,1.447
+baseline,3,hset-large,c=1 d=1900000,cpu_user_s,0.022380
+baseline,3,hset-large,c=1 d=1900000,cpu_sys_s,0.198220
+baseline,3,hset-large,c=1 d=1900000,cpu_total_s,0.220600
+baseline,3,hset-large,c=1 d=1900000,cpu_us_per_op,551.500
+baseline,3,bgsave,populate=64MB,used_memory_mb,75.8
+baseline,3,bgsave,populate=64MB,fork_ms,3.911
+baseline,3,bgsave,populate=64MB,bgsave_wall_ms,300.3
+baseline,3,bgsave,populate=64MB,child_cpu_s,0.164
+baseline,3,bgsave,populate=64MB,fork_ms,2.534
+baseline,3,bgsave,populate=64MB,bgsave_wall_ms,288.8
+baseline,3,bgsave,populate=64MB,child_cpu_s,0.162
+baseline,3,bgsave,populate=64MB,fork_ms,2.468
+baseline,3,bgsave,populate=64MB,bgsave_wall_ms,287.4
+baseline,3,bgsave,populate=64MB,child_cpu_s,0.160
+baseline,3,bgsave,populate=256MB,used_memory_mb,300.0
+baseline,3,bgsave,populate=256MB,fork_ms,13.312
+baseline,3,bgsave,populate=256MB,bgsave_wall_ms,835.4
+baseline,3,bgsave,populate=256MB,child_cpu_s,0.666
+baseline,3,bgsave,populate=256MB,fork_ms,7.451
+baseline,3,bgsave,populate=256MB,bgsave_wall_ms,859.8
+baseline,3,bgsave,populate=256MB,child_cpu_s,0.653
+baseline,3,bgsave,populate=256MB,fork_ms,8.304
+baseline,3,bgsave,populate=256MB,bgsave_wall_ms,864.0
+baseline,3,bgsave,populate=256MB,child_cpu_s,0.646
+fork,3,set,c=1 P=1 d=3,rps,19105.85
+fork,3,set,c=1 P=1 d=3,avg_ms,0.045
+fork,3,set,c=1 P=1 d=3,p50_ms,0.047
+fork,3,set,c=1 P=1 d=3,p99_ms,0.079
+fork,3,set,c=1 P=1 d=3,max_ms,5.623
+fork,3,set,c=1 P=1 d=3,cpu_user_s,0.218927
+fork,3,set,c=1 P=1 d=3,cpu_sys_s,1.540738
+fork,3,set,c=1 P=1 d=3,cpu_total_s,1.759665
+fork,3,set,c=1 P=1 d=3,cpu_us_per_op,17.597
+fork,3,set,c=50 P=16 d=3,rps,801282.06
+fork,3,set,c=50 P=16 d=3,avg_ms,0.871
+fork,3,set,c=50 P=16 d=3,p50_ms,0.847
+fork,3,set,c=50 P=16 d=3,p99_ms,1.319
+fork,3,set,c=50 P=16 d=3,max_ms,8.895
+fork,3,set,c=50 P=16 d=3,cpu_user_s,0.180018
+fork,3,set,c=50 P=16 d=3,cpu_sys_s,0.428040
+fork,3,set,c=50 P=16 d=3,cpu_total_s,0.608058
+fork,3,set,c=50 P=16 d=3,cpu_us_per_op,1.216
+fork,3,get,c=1 P=1 d=3,rps,20755.50
+fork,3,get,c=1 P=1 d=3,avg_ms,0.041
+fork,3,get,c=1 P=1 d=3,p50_ms,0.039
+fork,3,get,c=1 P=1 d=3,p99_ms,0.063
+fork,3,get,c=1 P=1 d=3,max_ms,6.471
+fork,3,get,c=1 P=1 d=3,cpu_user_s,0.163474
+fork,3,get,c=1 P=1 d=3,cpu_sys_s,1.470570
+fork,3,get,c=1 P=1 d=3,cpu_total_s,1.634044
+fork,3,get,c=1 P=1 d=3,cpu_us_per_op,16.340
+fork,3,get,c=50 P=16 d=3,rps,830564.81
+fork,3,get,c=50 P=16 d=3,avg_ms,0.698
+fork,3,get,c=50 P=16 d=3,p50_ms,0.663
+fork,3,get,c=50 P=16 d=3,p99_ms,1.287
+fork,3,get,c=50 P=16 d=3,max_ms,1.463
+fork,3,get,c=50 P=16 d=3,cpu_user_s,0.136053
+fork,3,get,c=50 P=16 d=3,cpu_sys_s,0.438640
+fork,3,get,c=50 P=16 d=3,cpu_total_s,0.574693
+fork,3,get,c=50 P=16 d=3,cpu_us_per_op,1.149
+fork,3,hset,c=1 P=1 d=3,rps,19952.12
+fork,3,hset,c=1 P=1 d=3,avg_ms,0.043
+fork,3,hset,c=1 P=1 d=3,p50_ms,0.047
+fork,3,hset,c=1 P=1 d=3,p99_ms,0.071
+fork,3,hset,c=1 P=1 d=3,max_ms,27.887
+fork,3,hset,c=1 P=1 d=3,cpu_user_s,0.200916
+fork,3,hset,c=1 P=1 d=3,cpu_sys_s,1.513550
+fork,3,hset,c=1 P=1 d=3,cpu_total_s,1.714466
+fork,3,hset,c=1 P=1 d=3,cpu_us_per_op,17.145
+fork,3,hset,c=50 P=16 d=3,rps,776397.50
+fork,3,hset,c=50 P=16 d=3,avg_ms,0.924
+fork,3,hset,c=50 P=16 d=3,p50_ms,0.903
+fork,3,hset,c=50 P=16 d=3,p99_ms,1.343
+fork,3,hset,c=50 P=16 d=3,max_ms,1.959
+fork,3,hset,c=50 P=16 d=3,cpu_user_s,0.194939
+fork,3,hset,c=50 P=16 d=3,cpu_sys_s,0.442090
+fork,3,hset,c=50 P=16 d=3,cpu_total_s,0.637029
+fork,3,hset,c=50 P=16 d=3,cpu_us_per_op,1.274
+fork,3,set,c=4 P=1 d=1900000,rps,1384.08
+fork,3,set,c=4 P=1 d=1900000,avg_ms,2.874
+fork,3,set,c=4 P=1 d=1900000,p50_ms,2.839
+fork,3,set,c=4 P=1 d=1900000,p99_ms,3.855
+fork,3,set,c=4 P=1 d=1900000,max_ms,5.775
+fork,3,set,c=4 P=1 d=1900000,cpu_user_s,0.012830
+fork,3,set,c=4 P=1 d=1900000,cpu_sys_s,0.227800
+fork,3,set,c=4 P=1 d=1900000,cpu_total_s,0.240630
+fork,3,set,c=4 P=1 d=1900000,cpu_us_per_op,601.575
+fork,3,get,c=4 P=1 d=1900000,rps,1544.40
+fork,3,get,c=4 P=1 d=1900000,avg_ms,0.788
+fork,3,get,c=4 P=1 d=1900000,p50_ms,0.711
+fork,3,get,c=4 P=1 d=1900000,p99_ms,1.423
+fork,3,get,c=4 P=1 d=1900000,max_ms,2.559
+fork,3,get,c=4 P=1 d=1900000,cpu_user_s,0.001890
+fork,3,get,c=4 P=1 d=1900000,cpu_sys_s,0.200550
+fork,3,get,c=4 P=1 d=1900000,cpu_total_s,0.202440
+fork,3,get,c=4 P=1 d=1900000,cpu_us_per_op,506.100
+fork,3,hmget,c=1 d=1900000,rps,1204.82
+fork,3,hmget,c=1 d=1900000,avg_ms,0.093
+fork,3,hmget,c=1 d=1900000,p50_ms,0.095
+fork,3,hmget,c=1 d=1900000,p99_ms,0.127
+fork,3,hmget,c=1 d=1900000,max_ms,0.159
+fork,3,hmget,c=1 d=1900000,cpu_user_s,0.012670
+fork,3,hmget,c=1 d=1900000,cpu_sys_s,0.199210
+fork,3,hmget,c=1 d=1900000,cpu_total_s,0.211880
+fork,3,hmget,c=1 d=1900000,cpu_us_per_op,529.700
+fork,3,hmget,c=2 d=1900000,rps,1413.43
+fork,3,hmget,c=2 d=1900000,avg_ms,0.302
+fork,3,hmget,c=2 d=1900000,p50_ms,0.255
+fork,3,hmget,c=2 d=1900000,p99_ms,0.751
+fork,3,hmget,c=2 d=1900000,max_ms,1.031
+fork,3,hmget,c=2 d=1900000,cpu_user_s,0.012440
+fork,3,hmget,c=2 d=1900000,cpu_sys_s,0.198630
+fork,3,hmget,c=2 d=1900000,cpu_total_s,0.211070
+fork,3,hmget,c=2 d=1900000,cpu_us_per_op,527.675
+fork,3,hset-large,c=1 d=1900000,rps,941.18
+fork,3,hset-large,c=1 d=1900000,avg_ms,1.055
+fork,3,hset-large,c=1 d=1900000,p50_ms,1.055
+fork,3,hset-large,c=1 d=1900000,p99_ms,1.263
+fork,3,hset-large,c=1 d=1900000,max_ms,1.335
+fork,3,hset-large,c=1 d=1900000,cpu_user_s,0.021140
+fork,3,hset-large,c=1 d=1900000,cpu_sys_s,0.211260
+fork,3,hset-large,c=1 d=1900000,cpu_total_s,0.232400
+fork,3,hset-large,c=1 d=1900000,cpu_us_per_op,581.000
+fork,3,bgsave,populate=64MB,used_memory_mb,75.8
+fork,3,bgsave,populate=64MB,fork_ms,4.635
+fork,3,bgsave,populate=64MB,bgsave_wall_ms,239.3
+fork,3,bgsave,populate=64MB,child_cpu_s,0.050
+fork,3,bgsave,populate=64MB,fork_ms,2.745
+fork,3,bgsave,populate=64MB,bgsave_wall_ms,170.8
+fork,3,bgsave,populate=64MB,child_cpu_s,0.049
+fork,3,bgsave,populate=64MB,fork_ms,2.856
+fork,3,bgsave,populate=64MB,bgsave_wall_ms,104.4
+fork,3,bgsave,populate=64MB,child_cpu_s,0.049
+fork,3,bgsave,populate=256MB,used_memory_mb,300.0
+fork,3,bgsave,populate=256MB,fork_ms,14.550
+fork,3,bgsave,populate=256MB,bgsave_wall_ms,333.9
+fork,3,bgsave,populate=256MB,child_cpu_s,0.197
+fork,3,bgsave,populate=256MB,fork_ms,8.625
+fork,3,bgsave,populate=256MB,bgsave_wall_ms,337.6
+fork,3,bgsave,populate=256MB,child_cpu_s,0.215
+fork,3,bgsave,populate=256MB,fork_ms,8.190
+fork,3,bgsave,populate=256MB,bgsave_wall_ms,394.3
+fork,3,bgsave,populate=256MB,child_cpu_s,0.204
